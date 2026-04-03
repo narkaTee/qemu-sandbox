@@ -201,6 +201,47 @@ describe("loadProjectConfig", () => {
     assert.equal(config.mounts[1].guest, "/home/dev/.config/foobar");
   });
 
+  it("adds workspace mount when mount-workspace is true", async () => {
+    dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
+    const configDir = join(dir, ".qemu-sandbox");
+    await mkdir(configDir, { recursive: true });
+    await writeFile(
+      join(configDir, "sandbox.yaml"),
+      "mount-workspace: true\n",
+    );
+
+    const config = await loadProjectConfig(dir);
+    assert.equal(config.mounts.length, 1);
+    assert.equal(config.mounts[0].host, dir);
+    assert.equal(config.mounts[0].guest, "/home/dev/workspace");
+    assert.equal(config.mounts[0].readonly, false);
+  });
+
+  it("workspace mount is first when combined with mounts.yaml", async () => {
+    dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
+    const configDir = join(dir, ".qemu-sandbox");
+    await mkdir(configDir, { recursive: true });
+    await writeFile(
+      join(configDir, "sandbox.yaml"),
+      "mount-workspace: true\n",
+    );
+    await writeFile(
+      join(configDir, "mounts.yaml"),
+      "- host: ~/.config/asd\n",
+    );
+
+    const config = await loadProjectConfig(dir);
+    assert.equal(config.mounts.length, 2);
+    assert.equal(config.mounts[0].guest, "/home/dev/workspace");
+    assert.equal(config.mounts[1].guest, "/home/dev/.config/asd");
+  });
+
+  it("no workspace mount when mount-workspace is false", async () => {
+    dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
+    const config = await loadProjectConfig(dir);
+    assert.equal(config.mounts.length, 0);
+  });
+
   it("errors on relative path without guest", async () => {
     dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
     const configDir = join(dir, ".qemu-sandbox");

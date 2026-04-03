@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { sandboxName, isRunning, readSshPort } from "../state.ts";
 import { SSH_OPTS } from "../ssh.ts";
+import { loadProjectConfig } from "../project-config.ts";
 import type { ParsedArgs } from "../bin/sandbox.ts";
 
 function rsync(args: string[]): Promise<void> {
@@ -18,6 +19,13 @@ export async function sync(args: ParsedArgs): Promise<void> {
   const direction = args.subcommand;
   if (direction !== "up" && direction !== "down") {
     throw new Error("Usage: sandbox sync [up|down]");
+  }
+
+  const config = await loadProjectConfig();
+  if (config.settings["mount-workspace"]) {
+    throw new Error(
+      "sync is disabled when mount-workspace is enabled (files are already shared via virtio mount)",
+    );
   }
 
   const name = sandboxName();

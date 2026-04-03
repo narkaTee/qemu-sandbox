@@ -137,5 +137,13 @@ export async function loadProjectConfig(
   const mountsRaw = await loadYaml(join(localDir, "mounts.yaml"));
   const mounts = resolveMounts(parseMounts(mountsRaw), projectRoot);
 
+  if (settings["mount-workspace"]) {
+    mounts.unshift({
+      host: projectRoot,
+      guest: "/home/dev/workspace",
+      readonly: false,
+    });
+  }
+
   return { projectRoot, settings, customCloudInit, mounts };
 }

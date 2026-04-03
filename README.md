@@ -38,9 +38,23 @@ Run `qemu-sandbox` in a project directory to start a VM and enter it via SSH. Ea
 | `sync up`    | Upload current directory to sandbox      |
 | `sync down`  | Download sandbox workspace to current directory |
 
-## Project Configuration
+## Configuration
 
-Place configuration files in a `.qemu-sandbox/` directory at the project root.
+Settings can be defined globally in `~/.config/qemu-sandbox/sandbox.yaml` and per-project in `.qemu-sandbox/sandbox.yaml`. Local settings override global ones.
+
+### Global Configuration
+
+Create `~/.config/qemu-sandbox/sandbox.yaml` for defaults that apply to all sandboxes:
+
+```yaml
+memory: 8000
+cpus: 4
+mount-workspace: true
+```
+
+### Project Configuration
+
+Place configuration files in a `.qemu-sandbox/` directory at the project root. Settings here override the global config.
 
 ### `.qemu-sandbox/sandbox.yaml`
 
@@ -50,13 +64,17 @@ VM settings:
 cpus: 4
 memory: 8000
 image: debian-13
+mount-workspace: true
 ```
 
-| Field    | Description                          | Default     |
-|----------|--------------------------------------|-------------|
-| `cpus`   | Number of virtual CPUs               | auto        |
-| `memory` | Memory in MB                         | auto        |
-| `image`  | Base image name                      | `debian-13` |
+| Field              | Description                          | Default     |
+|--------------------|--------------------------------------|-------------|
+| `cpus`             | Number of virtual CPUs               | auto        |
+| `memory`           | Memory in MB                         | auto        |
+| `image`            | Base image name                      | `debian-13` |
+| `mount-workspace`  | Mount project directory into VM      | `false`     |
+
+> **⚠️ mount-workspace weakens the sandbox.** When enabled, the VM has direct read/write access to your project directory on the host via a virtio-9p mount. Anything running inside the VM can read, modify, or create executable files on your host disk. The `sync` command is disabled when this is active since files are already shared.
 
 ### `.qemu-sandbox/cloud-init.yaml`
 
@@ -99,6 +117,8 @@ Additional host directories to mount into the VM via virtio-9p:
 ```
 
 When `guest` is omitted, it is derived from the `host` path by mapping `~` to `/home/dev`. Relative paths without an explicit `guest` field will error.
+
+> **Note:** The sandbox does not mount anything by default. All mounts must be explicitly configured.
 
 ## Baking
 
