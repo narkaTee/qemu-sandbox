@@ -2,7 +2,7 @@ import { describe, it, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { tmpdir, homedir } from "node:os";
 import { loadProjectConfig, resolveMounts } from "../src/project-config.ts";
 
 describe("loadProjectConfig", () => {
@@ -68,6 +68,38 @@ describe("loadProjectConfig", () => {
     assert.equal(config.mounts[1].guest, "/mnt/data");
     assert.equal(config.mounts[1].readonly, true);
   });
+
+  it("derives guest path from ~ host paths", async () => {
+    dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
+    const configDir = join(dir, ".qemu-sandbox");
+    await mkdir(configDir, { recursive: true });
+    await writeFile(
+      join(configDir, "mounts.yaml"),
+      "- host: ~/.config/asd\n- host: ~/.config/foobar\n",
+    );
+
+    const config = await loadProjectConfig(dir);
+    assert.equal(config.mounts.length, 2);
+    assert.equal(config.mounts[0].host, join(homedir(), ".config/asd"));
+    assert.equal(config.mounts[0].guest, "/home/dev/.config/asd");
+    assert.equal(config.mounts[1].host, join(homedir(), ".config/foobar"));
+    assert.equal(config.mounts[1].guest, "/home/dev/.config/foobar");
+  });
+
+  it("errors on relative path without guest", async () => {
+    dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
+    const configDir = join(dir, ".qemu-sandbox");
+    await mkdir(configDir, { recursive: true });
+    await writeFile(
+      join(configDir, "mounts.yaml"),
+      "- host: ../some-dir\n",
+    );
+
+    await assert.rejects(
+      () => loadProjectConfig(dir),
+      /requires an explicit 'guest' field/,
+    );
+  });
 });
 
 describe("resolveMounts", () => {
@@ -78,5 +110,13 @@ describe("resolveMounts", () => {
     );
     assert.equal(result[0].host, "/projects/myapp/src");
     assert.equal(result[0].guest, "/opt/src");
+  });
+
+  it("resolves ~ host paths against home directory", () => {
+    const result = resolveMounts(
+      [{ host: "~/.config/tool", guest: "/home/dev/.config/tool", readonly: false }],
+      "/projects/myapp",
+    );
+    assert.equal(result[0].host, join(homedir(), ".config/tool"));
   });
 });

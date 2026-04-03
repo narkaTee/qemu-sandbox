@@ -1,5 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { homedir } from "node:os";
 import { parse } from "yaml";
 
 const CONFIG_DIR = ".qemu-sandbox";
@@ -30,6 +31,15 @@ async function fileExists(path: string): Promise<boolean> {
   );
 }
 
+function deriveGuestPath(host: string): string {
+  if (host.startsWith("~/") || host === "~") {
+    return "/home/dev" + host.slice(1);
+  }
+  throw new Error(
+    `Mount '${host}' is a relative path and requires an explicit 'guest' field`,
+  );
+}
+
 function parseMounts(raw: unknown): MountEntry[] {
   if (!Array.isArray(raw)) return [];
   return raw
@@ -37,14 +47,17 @@ function parseMounts(raw: unknown): MountEntry[] {
       (e) =>
         e &&
         typeof e === "object" &&
-        typeof e.host === "string" &&
-        typeof e.guest === "string",
+        typeof e.host === "string",
     )
-    .map((e) => ({
-      host: e.host as string,
-      guest: e.guest as string,
-      readonly: e.readonly === true,
-    }));
+    .map((e) => {
+      const host = e.host as string;
+      const guest = typeof e.guest === "string" ? e.guest : deriveGuestPath(host);
+      return {
+        host,
+        guest,
+        readonly: e.readonly === true,
+      };
+    });
 }
 
 function parseSettings(raw: unknown): SandboxSettings {
@@ -64,7 +77,9 @@ export function resolveMounts(
 ): MountEntry[] {
   return mounts.map((m) => ({
     ...m,
-    host: resolve(projectRoot, m.host),
+    host: m.host.startsWith("~")
+      ? resolve(homedir(), m.host.slice(2))
+      : resolve(projectRoot, m.host),
   }));
 }
 

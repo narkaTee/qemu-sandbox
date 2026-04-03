@@ -91,13 +91,14 @@ The custom config is merged with the following rules:
 Additional host directories to mount into the VM via virtio-9p:
 
 ```yaml
+- host: ~/.config/asd
+- host: ~/.config/foobar
 - host: ../shared-libs
   guest: /home/dev/libs
   readonly: true
-
-- host: ~/.config/tool
-  guest: /home/dev/.config/tool
 ```
+
+When `guest` is omitted, it is derived from the `host` path by mapping `~` to `/home/dev`. Relative paths without an explicit `guest` field will error.
 
 ## Baking
 

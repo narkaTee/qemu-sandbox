@@ -10,7 +10,7 @@ New dependencies need to be discussed with the user, explain why a dependency mi
 Test live in `test` and the folder structure must mirror the structure in `src`.
 Run the test with `npm run test`.
 
-## Typechecking
+## Typechecking (tsc, compiling)
 
 Run `npm run typecheck` after every code change and fix any errors before considering the task done.
 
