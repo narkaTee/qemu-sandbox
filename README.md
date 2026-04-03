@@ -1,4 +1,4 @@
-# sandbox
+# qemu-sandbox
 
 QEMU-based development sandboxes. Spins up a Linux VM from your project directory with shared filesystem, SSH access, and IDE integration. Works on macOS and Linux.
 
@@ -18,10 +18,10 @@ npm install -g .
 ## Usage
 
 ```
-sandbox [command]
+qemu-sandbox [command]
 ```
 
-Run `sandbox` in a project directory to start a VM and enter it via SSH. Each directory gets its own isolated sandbox.
+Run `qemu-sandbox` in a project directory to start a VM and enter it via SSH. Each directory gets its own isolated sandbox.
 
 ### Commands
 
@@ -101,4 +101,4 @@ Additional host directories to mount into the VM via virtio-9p:
 
 ## Baking
 
-Running `sandbox bake` creates a snapshot image with all cloud-init provisioning already applied. Subsequent `sandbox` starts use the baked image, skipping the cloud-init boot phase. The baked image is cached and rebuilt automatically when `cloud-init.yaml` or the base image changes.
+Running `qemu-sandbox bake` creates a snapshot image with all cloud-init provisioning already applied. Subsequent `qemu-sandbox` starts use the baked image, skipping the cloud-init boot phase. The baked image is cached and rebuilt automatically when `cloud-init.yaml` or the base image changes.

@@ -1,9 +1,9 @@
 {
-  "name": "sandbox",
+  "name": "qemu-sandbox",
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "sandbox": "src/bin/sandbox.ts"
+    "qemu-sandbox": "src/bin/sandbox.ts"
   },
   "scripts": {
     "start": "node src/bin/sandbox.ts",
