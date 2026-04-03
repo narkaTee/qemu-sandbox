@@ -16,7 +16,7 @@ function getArch(): string {
 }
 
 function imageFilename(): string {
-  return `debian-13-genericcloud-${getArch()}.qcow2`;
+  return `debian-13-generic-${getArch()}.qcow2`;
 }
 
 function parseSha512Sums(text: string): Map<string, string> {
