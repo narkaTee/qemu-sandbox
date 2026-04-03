@@ -117,6 +117,7 @@ export async function listAll(): Promise<SandboxInfo[]> {
     const info = await stat(dir);
     if (!info.isDirectory()) continue;
 
+    if (!/^[a-zA-Z0-9_-]+$/.test(entry)) continue;
     const state = await readState(entry).catch(() => null);
     const pid = state?.pid ?? null;
     const sshPort = state?.sshPort ?? null;
