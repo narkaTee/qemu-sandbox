@@ -23,17 +23,25 @@ function renderUserData(config: CloudInitConfig): string {
   if (config.hostname) {
     lines.push(`hostname: ${yamlEscape(config.hostname)}`);
   }
-  lines.push("user: dev");
-  lines.push("password: dev");
-  lines.push("chpasswd: { expire: false }");
-  lines.push("ssh_pwauth: true");
+  lines.push("users:");
+  lines.push("  - name: dev");
+  lines.push("    plain_text_passwd: dev");
+  lines.push("    shell: /bin/bash");
+  lines.push("    sudo: ALL=(ALL) NOPASSWD:ALL");
+  lines.push("    lock_passwd: false");
   if (config.sshAuthorizedKeys?.length) {
-    lines.push("ssh_authorized_keys:");
+    lines.push("    ssh_authorized_keys:");
     for (const key of config.sshAuthorizedKeys) {
-      lines.push(`  - ${yamlEscape(key)}`);
+      lines.push(`      - ${yamlEscape(key)}`);
     }
   }
+  lines.push("ssh_pwauth: true");
   if (config.mounts?.length) {
+    lines.push("bootcmd:");
+    lines.push("  - modprobe 9pnet_virtio");
+    for (const [i, m] of config.mounts.entries()) {
+      lines.push(`  - mkdir -p ${m.guest}`);
+    }
     lines.push("mounts:");
     for (const [i, m] of config.mounts.entries()) {
       const tag = `mount${i}`;
@@ -41,10 +49,6 @@ function renderUserData(config: CloudInitConfig): string {
       lines.push(
         `  - [${yamlEscape(tag)}, ${yamlEscape(m.guest)}, "9p", ${yamlEscape(opts)}, "0", "0"]`,
       );
-    }
-    lines.push("bootcmd:");
-    for (const m of config.mounts) {
-      lines.push(`  - mkdir -p ${m.guest}`);
     }
   }
   if (config.customCloudInit) {
