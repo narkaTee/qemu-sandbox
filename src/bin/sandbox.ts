@@ -12,7 +12,6 @@ export interface ParsedArgs {
   flags: {
     kvm: boolean;
     container: boolean;
-    proxy: boolean;
     all: boolean;
     follow: boolean;
     agents: string | null;
@@ -27,7 +26,6 @@ export function parseArgs(argv: string[]): ParsedArgs {
     flags: {
       kvm: false,
       container: false,
-      proxy: false,
       all: false,
       follow: false,
       agents: null,
@@ -44,16 +42,13 @@ export function parseArgs(argv: string[]): ParsedArgs {
     "bake",
     "code",
     "idea",
-    "tmux",
     "info",
     "list",
     "stop",
-    "proxy",
     "sync",
   ]);
 
   const subcommands: Record<string, Set<string>> = {
-    proxy: new Set(["allow", "block", "list", "log", "reset"]),
     sync: new Set(["up", "down"]),
     stop: new Set([]),
   };
@@ -66,8 +61,6 @@ export function parseArgs(argv: string[]): ParsedArgs {
       result.flags.kvm = true;
     } else if (arg === "--container") {
       result.flags.container = true;
-    } else if (arg === "--proxy") {
-      result.flags.proxy = true;
     } else if (arg === "-a") {
       result.flags.all = true;
     } else if (arg === "-f") {
@@ -115,17 +108,14 @@ Commands:
   (none)          Start/enter sandbox (auto-detects or defaults to container)
   code            Open in VS Code Remote SSH
   idea            Open in IntelliJ IDEA via JetBrains Gateway
-  tmux            Open in Alacritty terminal with tmux
   info            Show SSH connection details
   list            List all running sandboxes
   bake            Pre-bake custom image from .qemu-sandbox/cloud-init.yaml
   stop [-a]       Stop sandbox (-a for all)
-  proxy <cmd>     Proxy commands: allow, block, list, log [-f], reset
   sync <dir>      Sync workspace: up, down
 
 Flags:
   --kvm           Use KVM backend
-  --proxy         Add network isolation via proxy
   --agents <name> Bootstrap AI agent credentials`);
 }
 
@@ -156,8 +146,6 @@ async function main(): Promise<void> {
       break;
     case "code":
     case "idea":
-    case "tmux":
-    case "proxy":
     case "sync":
       console.error(`sandbox: '${command}' not yet implemented`);
       process.exit(1);

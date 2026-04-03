@@ -17,10 +17,6 @@ describe("parseArgs", () => {
   });
 
   it("parses subcommands", () => {
-    const proxy = parseArgs(["proxy", "allow"]);
-    assert.equal(proxy.command, "proxy");
-    assert.equal(proxy.subcommand, "allow");
-
     const sync = parseArgs(["sync", "up"]);
     assert.equal(sync.command, "sync");
     assert.equal(sync.subcommand, "up");
@@ -29,7 +25,6 @@ describe("parseArgs", () => {
   it("parses backend flags", () => {
     assert.equal(parseArgs(["--kvm"]).flags.kvm, true);
     assert.equal(parseArgs(["--container"]).flags.container, true);
-    assert.equal(parseArgs(["--proxy"]).flags.proxy, true);
   });
 
   it("parses -a flag", () => {
@@ -38,29 +33,20 @@ describe("parseArgs", () => {
     assert.equal(result.flags.all, true);
   });
 
-  it("parses -f flag", () => {
-    const result = parseArgs(["proxy", "log", "-f"]);
-    assert.equal(result.command, "proxy");
-    assert.equal(result.subcommand, "log");
-    assert.equal(result.flags.follow, true);
-  });
-
   it("parses --agents with value", () => {
     const result = parseArgs(["--agents", "claude"]);
     assert.equal(result.flags.agents, "claude");
   });
 
   it("collects positional args", () => {
-    const result = parseArgs(["proxy", "allow", "example.com"]);
-    assert.equal(result.command, "proxy");
-    assert.equal(result.subcommand, "allow");
-    assert.deepEqual(result.positional, ["example.com"]);
+    const result = parseArgs(["sync", "up"]);
+    assert.equal(result.command, "sync");
+    assert.equal(result.subcommand, "up");
   });
 
   it("combines flags and commands", () => {
-    const result = parseArgs(["--kvm", "--proxy", "--agents", "claude"]);
+    const result = parseArgs(["--kvm", "--agents", "claude"]);
     assert.equal(result.flags.kvm, true);
-    assert.equal(result.flags.proxy, true);
     assert.equal(result.flags.agents, "claude");
     assert.equal(result.command, null);
   });
@@ -69,7 +55,6 @@ describe("parseArgs", () => {
     const result = parseArgs([]);
     assert.equal(result.flags.kvm, false);
     assert.equal(result.flags.container, false);
-    assert.equal(result.flags.proxy, false);
     assert.equal(result.flags.all, false);
     assert.equal(result.flags.follow, false);
     assert.equal(result.flags.agents, null);
