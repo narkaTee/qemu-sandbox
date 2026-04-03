@@ -1,9 +1,122 @@
-import { describe, it, after } from "node:test";
+import { describe, it, after, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir, homedir } from "node:os";
-import { loadProjectConfig, resolveMounts } from "../src/project-config.ts";
+import {
+  loadProjectConfig,
+  resolveMounts,
+  parseSettings,
+  mergeSettings,
+} from "../src/project-config.ts";
+
+describe("parseSettings", () => {
+  it("returns defaults for null/undefined", () => {
+    const s = parseSettings(null);
+    assert.equal(s.image, null);
+    assert.equal(s.memory, null);
+    assert.equal(s.cpus, null);
+    assert.equal(s["mount-workspace"], false);
+    assert.deepEqual(s["mount-agent-configs"], []);
+  });
+
+  it("parses all fields", () => {
+    const s = parseSettings({
+      image: "debian-13",
+      memory: 4096,
+      cpus: 4,
+      "mount-workspace": true,
+      "mount-agent-configs": ["claude", "gemini"],
+    });
+    assert.equal(s.image, "debian-13");
+    assert.equal(s.memory, 4096);
+    assert.equal(s.cpus, 4);
+    assert.equal(s["mount-workspace"], true);
+    assert.deepEqual(s["mount-agent-configs"], ["claude", "gemini"]);
+  });
+
+  it("ignores invalid types", () => {
+    const s = parseSettings({
+      image: 123,
+      memory: "big",
+      cpus: "many",
+      "mount-workspace": "yes",
+      "mount-agent-configs": "claude",
+    });
+    assert.equal(s.image, null);
+    assert.equal(s.memory, null);
+    assert.equal(s.cpus, null);
+    assert.equal(s["mount-workspace"], false);
+    assert.deepEqual(s["mount-agent-configs"], []);
+  });
+
+  it("filters non-string entries in mount-agent-configs", () => {
+    const s = parseSettings({
+      "mount-agent-configs": ["claude", 42, null, "gemini"],
+    });
+    assert.deepEqual(s["mount-agent-configs"], ["claude", "gemini"]);
+  });
+});
+
+describe("mergeSettings", () => {
+  const defaults = parseSettings(null);
+
+  it("local overrides global scalar values", () => {
+    const global = { ...defaults, image: "debian-13", memory: 4096, cpus: 2 };
+    const local = { ...defaults, memory: 8192 };
+    const merged = mergeSettings(global, local);
+    assert.equal(merged.image, "debian-13");
+    assert.equal(merged.memory, 8192);
+    assert.equal(merged.cpus, 2);
+  });
+
+  it("local null does not override global", () => {
+    const global = { ...defaults, image: "debian-13", cpus: 4 };
+    const local = { ...defaults };
+    const merged = mergeSettings(global, local);
+    assert.equal(merged.image, "debian-13");
+    assert.equal(merged.cpus, 4);
+  });
+
+  it("mount-workspace is true if either is true", () => {
+    assert.equal(
+      mergeSettings(
+        { ...defaults, "mount-workspace": true },
+        { ...defaults },
+      )["mount-workspace"],
+      true,
+    );
+    assert.equal(
+      mergeSettings(
+        { ...defaults },
+        { ...defaults, "mount-workspace": true },
+      )["mount-workspace"],
+      true,
+    );
+    assert.equal(
+      mergeSettings(defaults, defaults)["mount-workspace"],
+      false,
+    );
+  });
+
+  it("local mount-agent-configs replaces global when non-empty", () => {
+    const global = { ...defaults, "mount-agent-configs": ["claude"] };
+    const local = { ...defaults, "mount-agent-configs": ["gemini"] };
+    assert.deepEqual(
+      mergeSettings(global, local)["mount-agent-configs"],
+      ["gemini"],
+    );
+  });
+
+  it("falls back to global mount-agent-configs when local is empty", () => {
+    const global = { ...defaults, "mount-agent-configs": ["claude"] };
+    const local = { ...defaults };
+    assert.deepEqual(
+      mergeSettings(global, local)["mount-agent-configs"],
+      ["claude"],
+    );
+  });
+});
 
 describe("loadProjectConfig", () => {
   let dir: string;
@@ -20,6 +133,8 @@ describe("loadProjectConfig", () => {
     assert.equal(config.settings.image, null);
     assert.equal(config.settings.memory, null);
     assert.equal(config.settings.cpus, null);
+    assert.equal(config.settings["mount-workspace"], false);
+    assert.deepEqual(config.settings["mount-agent-configs"], []);
   });
 
   it("loads cloud-init.yaml when present", async () => {

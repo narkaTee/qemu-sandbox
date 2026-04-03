@@ -3,7 +3,8 @@ import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { parse } from "yaml";
 
-const CONFIG_DIR = ".qemu-sandbox";
+const LOCAL_CONFIG_DIR = ".qemu-sandbox";
+const GLOBAL_CONFIG_DIR = join(homedir(), ".config", "qemu-sandbox");
 
 export interface MountEntry {
   host: string;
@@ -15,6 +16,8 @@ export interface SandboxSettings {
   image: string | null;
   memory: number | null;
   cpus: number | null;
+  "mount-workspace": boolean;
+  "mount-agent-configs": string[];
 }
 
 export interface ProjectConfig {
@@ -24,14 +27,14 @@ export interface ProjectConfig {
   mounts: MountEntry[];
 }
 
-async function fileExists(path: string): Promise<boolean> {
+export async function fileExists(path: string): Promise<boolean> {
   return stat(path).then(
     (s) => s.isFile(),
     () => false,
   );
 }
 
-function deriveGuestPath(host: string): string {
+export function deriveGuestPath(host: string): string {
   if (host.startsWith("~/") || host === "~") {
     return "/home/dev" + host.slice(1);
   }
@@ -40,7 +43,7 @@ function deriveGuestPath(host: string): string {
   );
 }
 
-function parseMounts(raw: unknown): MountEntry[] {
+export function parseMounts(raw: unknown): MountEntry[] {
   if (!Array.isArray(raw)) return [];
   return raw
     .filter(
@@ -60,14 +63,40 @@ function parseMounts(raw: unknown): MountEntry[] {
     });
 }
 
-function parseSettings(raw: unknown): SandboxSettings {
-  const defaults: SandboxSettings = { image: null, memory: null, cpus: null };
-  if (!raw || typeof raw !== "object") return defaults;
+const DEFAULT_SETTINGS: SandboxSettings = {
+  image: null,
+  memory: null,
+  cpus: null,
+  "mount-workspace": false,
+  "mount-agent-configs": [],
+};
+
+export function parseSettings(raw: unknown): SandboxSettings {
+  if (!raw || typeof raw !== "object") return { ...DEFAULT_SETTINGS };
   const obj = raw as Record<string, unknown>;
   return {
     image: typeof obj.image === "string" ? obj.image : null,
     memory: typeof obj.memory === "number" ? obj.memory : null,
     cpus: typeof obj.cpus === "number" ? obj.cpus : null,
+    "mount-workspace": obj["mount-workspace"] === true,
+    "mount-agent-configs": Array.isArray(obj["mount-agent-configs"])
+      ? obj["mount-agent-configs"].filter((v): v is string => typeof v === "string")
+      : [],
+  };
+}
+
+export function mergeSettings(
+  global: SandboxSettings,
+  local: SandboxSettings,
+): SandboxSettings {
+  return {
+    image: local.image ?? global.image,
+    memory: local.memory ?? global.memory,
+    cpus: local.cpus ?? global.cpus,
+    "mount-workspace": local["mount-workspace"] || global["mount-workspace"],
+    "mount-agent-configs": local["mount-agent-configs"].length > 0
+      ? local["mount-agent-configs"]
+      : global["mount-agent-configs"],
   };
 }
 
@@ -83,29 +112,30 @@ export function resolveMounts(
   }));
 }
 
+async function loadYaml(path: string): Promise<unknown> {
+  if (!(await fileExists(path))) return null;
+  return parse(await readFile(path, "utf-8"));
+}
+
 export async function loadProjectConfig(
   projectRoot: string = process.cwd(),
 ): Promise<ProjectConfig> {
-  const configDir = join(projectRoot, CONFIG_DIR);
-  const sandboxPath = join(configDir, "sandbox.yaml");
-  const cloudInitPath = join(configDir, "cloud-init.yaml");
-  const mountsPath = join(configDir, "mounts.yaml");
+  const localDir = join(projectRoot, LOCAL_CONFIG_DIR);
 
-  const settings = (await fileExists(sandboxPath))
-    ? parseSettings(parse(await readFile(sandboxPath, "utf-8")))
-    : { image: null, memory: null, cpus: null };
+  const globalSettings = parseSettings(
+    await loadYaml(join(GLOBAL_CONFIG_DIR, "sandbox.yaml")),
+  );
+  const localSettings = parseSettings(
+    await loadYaml(join(localDir, "sandbox.yaml")),
+  );
+  const settings = mergeSettings(globalSettings, localSettings);
 
-  const customCloudInit = (await fileExists(cloudInitPath))
-    ? await readFile(cloudInitPath, "utf-8")
+  const customCloudInit = (await fileExists(join(localDir, "cloud-init.yaml")))
+    ? await readFile(join(localDir, "cloud-init.yaml"), "utf-8")
     : null;
 
-  let mounts: MountEntry[] = [];
-  if (await fileExists(mountsPath)) {
-    mounts = resolveMounts(
-      parseMounts(parse(await readFile(mountsPath, "utf-8"))),
-      projectRoot,
-    );
-  }
+  const mountsRaw = await loadYaml(join(localDir, "mounts.yaml"));
+  const mounts = resolveMounts(parseMounts(mountsRaw), projectRoot);
 
   return { projectRoot, settings, customCloudInit, mounts };
 }
