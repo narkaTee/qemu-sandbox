@@ -43,16 +43,62 @@ function buildUserData(config: CloudInitConfig): Record<string, unknown> {
 
   if (config.customCloudInit) {
     const custom = parse(config.customCloudInit) as Record<string, unknown>;
-    for (const [key, value] of Object.entries(custom)) {
-      if (key in doc && Array.isArray(doc[key]) && Array.isArray(value)) {
-        doc[key] = [...(doc[key] as unknown[]), ...value];
-      } else {
-        doc[key] = value;
-      }
-    }
+    mergeCustomCloudInit(doc, custom);
   }
 
   return doc;
+}
+
+const PROTECTED_KEYS = new Set(["hostname"]);
+
+function mergeCustomCloudInit(
+  doc: Record<string, unknown>,
+  custom: Record<string, unknown>,
+): void {
+  for (const [key, value] of Object.entries(custom)) {
+    if (PROTECTED_KEYS.has(key)) {
+      console.warn(
+        `cloud-init: ignoring protected key '${key}' from custom config`,
+      );
+      continue;
+    }
+    if (key === "users" && Array.isArray(value)) {
+      doc.users = mergeUsers(doc.users as Record<string, unknown>[], value);
+      continue;
+    }
+    if (key in doc && Array.isArray(doc[key]) && Array.isArray(value)) {
+      doc[key] = [...(doc[key] as unknown[]), ...value];
+    } else {
+      doc[key] = value;
+    }
+  }
+}
+
+function mergeUsers(
+  base: Record<string, unknown>[],
+  custom: unknown[],
+): Record<string, unknown>[] {
+  const result = [...base];
+  for (const entry of custom) {
+    if (!entry || typeof entry !== "object" || !("name" in entry)) {
+      result.push(entry as Record<string, unknown>);
+      continue;
+    }
+    const name = (entry as Record<string, unknown>).name;
+    if (name === "dev") {
+      console.warn("cloud-init: ignoring custom 'dev' user definition");
+      continue;
+    }
+    const existing = result.findIndex(
+      (u) => u && typeof u === "object" && u.name === name,
+    );
+    if (existing >= 0) {
+      result[existing] = entry as Record<string, unknown>;
+    } else {
+      result.push(entry as Record<string, unknown>);
+    }
+  }
+  return result;
 }
 
 export function renderUserData(config: CloudInitConfig): string {
