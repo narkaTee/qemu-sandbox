@@ -22,20 +22,10 @@ describe("parseArgs", () => {
     assert.equal(sync.subcommand, "up");
   });
 
-  it("parses backend flags", () => {
-    assert.equal(parseArgs(["--kvm"]).flags.kvm, true);
-    assert.equal(parseArgs(["--container"]).flags.container, true);
-  });
-
   it("parses -a flag", () => {
     const result = parseArgs(["stop", "-a"]);
     assert.equal(result.command, "stop");
     assert.equal(result.flags.all, true);
-  });
-
-  it("parses --agents with value", () => {
-    const result = parseArgs(["--agents", "claude"]);
-    assert.equal(result.flags.agents, "claude");
   });
 
   it("collects positional args", () => {
@@ -44,19 +34,8 @@ describe("parseArgs", () => {
     assert.equal(result.subcommand, "up");
   });
 
-  it("combines flags and commands", () => {
-    const result = parseArgs(["--kvm", "--agents", "claude"]);
-    assert.equal(result.flags.kvm, true);
-    assert.equal(result.flags.agents, "claude");
-    assert.equal(result.command, null);
-  });
-
-  it("defaults all flags to false/null", () => {
+  it("defaults all flags to false", () => {
     const result = parseArgs([]);
-    assert.equal(result.flags.kvm, false);
-    assert.equal(result.flags.container, false);
     assert.equal(result.flags.all, false);
-    assert.equal(result.flags.follow, false);
-    assert.equal(result.flags.agents, null);
   });
 });

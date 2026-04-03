@@ -12,11 +12,7 @@ export interface ParsedArgs {
   command: string | null;
   subcommand: string | null;
   flags: {
-    kvm: boolean;
-    container: boolean;
     all: boolean;
-    follow: boolean;
-    agents: string | null;
   };
   positional: string[];
 }
@@ -26,11 +22,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     command: null,
     subcommand: null,
     flags: {
-      kvm: false,
-      container: false,
       all: false,
-      follow: false,
-      agents: null,
     },
     positional: [],
   };
@@ -59,20 +51,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
   while (i < argv.length) {
     const arg = argv[i];
 
-    if (arg === "--kvm") {
-      result.flags.kvm = true;
-    } else if (arg === "--container") {
-      result.flags.container = true;
-    } else if (arg === "-a") {
+    if (arg === "-a") {
       result.flags.all = true;
-    } else if (arg === "-f") {
-      result.flags.follow = true;
-    } else if (arg === "--agents") {
-      i++;
-      if (i >= argv.length) {
-        exitWithError("--agents requires a value");
-      }
-      result.flags.agents = argv[i];
     } else if (
       !result.command &&
       (commands.has(arg) || arg in commandAliases)
@@ -115,10 +95,7 @@ Commands:
   bake            Pre-bake custom image from .qemu-sandbox/cloud-init.yaml
   stop [-a]       Stop sandbox (-a for all)
   sync <dir>      Sync workspace: up, down
-
-Flags:
-  --kvm           Use KVM backend
-  --agents <name> Bootstrap AI agent credentials`);
+`);
 }
 
 async function main(): Promise<void> {
