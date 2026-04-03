@@ -56,7 +56,7 @@ export async function start(_args: ParsedArgs): Promise<void> {
   console.log(`QEMU started (PID: ${pid})`);
 
   console.log("Waiting for SSH...");
-  await waitForSsh("localhost", sshPort);
+  await waitForSsh({ host: "localhost", port: sshPort });
   const bootTime = ((Date.now() - bootStart) / 1000).toFixed(1);
   console.log(`VM ready in ${bootTime}s (ssh port: ${sshPort})`);
 

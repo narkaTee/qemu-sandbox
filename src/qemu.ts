@@ -69,6 +69,7 @@ export async function launchVm(config: VmConfig): Promise<number> {
   await createOverlay(config.baseImage, overlayPath);
 
   const accel = await detectAccel();
+  console.log(`Acceleration: ${accel}`);
   const memory = config.memory ?? 4096;
   const cpus = config.cpus ?? 4;
 
@@ -146,12 +147,16 @@ export async function launchVm(config: VmConfig): Promise<number> {
   });
 }
 
-export function waitForSsh(
-  host: string,
-  port: number,
-  user: string = "dev",
-  timeoutSeconds: number = 120,
-): Promise<void> {
+export interface WaitForSshOptions {
+  host: string;
+  port: number;
+  user?: string;
+  identityFile?: string;
+  timeoutSeconds?: number;
+}
+
+export function waitForSsh(opts: WaitForSshOptions): Promise<void> {
+  const { host, port, user = "dev", identityFile, timeoutSeconds = 120 } = opts;
   const deadline = Date.now() + timeoutSeconds * 1000;
 
   return new Promise((resolve, reject) => {
@@ -165,21 +170,20 @@ export function waitForSsh(
         return;
       }
 
-      const child = spawn(
-        "ssh",
-        [
-          ...SSH_OPTS,
-          "-o",
-          "ConnectTimeout=2",
-          "-o",
-          "BatchMode=yes",
-          "-p",
-          String(port),
-          `${user}@${host}`,
-          "true",
-        ],
-        { stdio: "ignore" },
-      );
+      const sshArgs = [
+        ...SSH_OPTS,
+        "-o",
+        "ConnectTimeout=2",
+        "-o",
+        "BatchMode=yes",
+        ...(identityFile ? ["-i", identityFile] : []),
+        "-p",
+        String(port),
+        `${user}@${host}`,
+        "true",
+      ];
+
+      const child = spawn("ssh", sshArgs, { stdio: "ignore" });
       child.on("close", (code) => {
         if (code === 0) {
           resolve();
