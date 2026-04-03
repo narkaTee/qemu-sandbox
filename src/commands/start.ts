@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { createSeedIso } from "../cloud-init.ts";
 import { launchVm, waitForSsh } from "../qemu.ts";
-import { enterSsh } from "../ssh.ts";
+import { enterSsh, copyFilesToVm } from "../ssh.ts";
 import { getSshAgentKeys } from "../ssh-keys.ts";
 import { allocateSshPort } from "../ssh-port.ts";
 import {
@@ -66,6 +66,11 @@ export async function start(_args: ParsedArgs): Promise<void> {
   await waitForSsh({ host: "localhost", port: sshPort });
   const bootTime = ((Date.now() - bootStart) / 1000).toFixed(1);
   console.log(`VM ready in ${bootTime}s (ssh port: ${sshPort})`);
+
+  if (config.copies.length > 0) {
+    console.log(`Copying ${config.copies.length} file(s) to VM...`);
+    await copyFilesToVm("localhost", sshPort, "dev", config.copies);
+  }
 
   await enterSsh("localhost", sshPort, "dev");
 }

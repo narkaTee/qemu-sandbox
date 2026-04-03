@@ -2,6 +2,8 @@ import { readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { parse } from "yaml";
+import { resolveAgentConfigs } from "./agent-mounts.ts";
+import type { FileCopy } from "./agent-mounts.ts";
 
 const LOCAL_CONFIG_DIR = ".qemu-sandbox";
 const GLOBAL_CONFIG_DIR = join(homedir(), ".config", "qemu-sandbox");
@@ -25,6 +27,7 @@ export interface ProjectConfig {
   settings: SandboxSettings;
   customCloudInit: string | null;
   mounts: MountEntry[];
+  copies: FileCopy[];
 }
 
 export async function fileExists(path: string): Promise<boolean> {
@@ -145,5 +148,12 @@ export async function loadProjectConfig(
     });
   }
 
-  return { projectRoot, settings, customCloudInit, mounts };
+  let copies: FileCopy[] = [];
+  if (settings["mount-agent-configs"].length > 0) {
+    const agent = await resolveAgentConfigs(settings["mount-agent-configs"]);
+    mounts.push(...agent.mounts);
+    copies = agent.copies;
+  }
+
+  return { projectRoot, settings, customCloudInit, mounts, copies };
 }

@@ -72,7 +72,8 @@ mount-workspace: true
 | `cpus`             | Number of virtual CPUs               | auto        |
 | `memory`           | Memory in MB                         | auto        |
 | `image`            | Base image name                      | `debian-13` |
-| `mount-workspace`  | Mount project directory into VM      | `false`     |
+| `mount-workspace`      | Mount project directory into VM      | `false`     |
+| `mount-agent-configs`  | List of agent configs to mount       | `[]`        |
 
 > **⚠️ mount-workspace weakens the sandbox.** When enabled, the VM has direct read/write access to your project directory on the host via a virtio-9p mount. Anything running inside the VM can read, modify, or create executable files on your host disk. The `sync` command is disabled when this is active since files are already shared.
 
@@ -119,6 +120,30 @@ Additional host directories to mount into the VM via virtio-9p:
 When `guest` is omitted, it is derived from the `host` path by mapping `~` to `/home/dev`. Relative paths without an explicit `guest` field will error.
 
 > **Note:** The sandbox does not mount anything by default. All mounts must be explicitly configured.
+
+### Agent Config Mounting
+
+Automatically mount well-known coding agent configurations into the VM:
+
+```yaml
+mount-agent-configs:
+  - claude
+  - gemini
+```
+
+Supported agents:
+
+| Agent     | Host path                      | Guest path                          |
+|-----------|--------------------------------|-------------------------------------|
+| `claude`  | `~/.claude/`                   | `/home/dev/.claude/`                |
+| `claude`  | `~/.claude.json` (Only copied) | `/home/dev/.claude.json`            |
+| `gemini`  | `~/.gemini`                    | `/home/dev/.gemini`                 |
+| `opencode`| `~/.config/opencode`           | `/home/dev/.config/opencode`        |
+| `pi`      | `~/.pi`                        | `/home/dev/.pi`                     |
+
+Directories are mounted via virtio-9p. Single files (like `~/.claude.json`) are copied into the VM via scp after boot. Only paths that exist on the host are processed. Unknown agent names cause an error.
+
+> **⚠️ This gives the VM read/write access to your agent credentials and configuration.**
 
 ## Baking
 
