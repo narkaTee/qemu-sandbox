@@ -1,15 +1,14 @@
 import { createHash } from "node:crypto";
-import { mkdir, rename, rm, stat } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { resolveImage } from "./images/registry.ts";
 import { createSeedIso } from "./cloud-init.ts";
-import { createOverlay, launchVm, waitForSsh } from "./qemu.ts";
+import { launchVm, waitForSsh } from "./qemu.ts";
 import { allocateSshPort } from "./ssh-port.ts";
 import { exec } from "./exec.ts";
 import { SSH_OPTS } from "./ssh.ts";
-import { getSshAgentKeys } from "./ssh-keys.ts";
 import type { ProjectConfig } from "./project-config.ts";
 
 const BAKED_DIR = join(homedir(), ".cache", "qemu-sandbox", "images", "baked");
@@ -31,10 +30,34 @@ async function fileExists(path: string): Promise<boolean> {
   );
 }
 
+async function generateTempKeyPair(
+  dir: string,
+): Promise<{ keyPath: string; pubKey: string }> {
+  const keyPath = join(dir, "bake_key");
+  await exec("ssh-keygen", ["-t", "ed25519", "-f", keyPath, "-N", "", "-q"]);
+  const pubKey = (await readFile(`${keyPath}.pub`, "utf-8")).trim();
+  return { keyPath, pubKey };
+}
+
+function bakeSshArgs(keyPath: string, port: number, host: string): string[] {
+  return [
+    ...SSH_OPTS,
+    "-o",
+    "ConnectTimeout=5",
+    "-o",
+    "BatchMode=yes",
+    "-i",
+    keyPath,
+    "-p",
+    String(port),
+    `dev@${host}`,
+  ];
+}
+
 function waitForCloudInitDone(
   host: string,
   port: number,
-  user: string = "dev",
+  keyPath: string,
   timeoutSeconds: number = 600,
 ): Promise<void> {
   const deadline = Date.now() + timeoutSeconds * 1000;
@@ -50,17 +73,7 @@ function waitForCloudInitDone(
 
       const child = spawn(
         "ssh",
-        [
-          ...SSH_OPTS,
-          "-o",
-          "ConnectTimeout=5",
-          "-o",
-          "BatchMode=yes",
-          "-p",
-          String(port),
-          `${user}@${host}`,
-          "cloud-init status --wait",
-        ],
+        [...bakeSshArgs(keyPath, port, host), "cloud-init status --wait"],
         { stdio: ["ignore", "pipe", "ignore"] },
       );
 
@@ -70,7 +83,7 @@ function waitForCloudInitDone(
       });
 
       child.on("close", (code) => {
-        if (code === 0 && stdout.includes("done")) {
+        if ((code === 0 || code === 2) && stdout.includes("done")) {
           resolve();
         } else {
           setTimeout(attempt, 5000);
@@ -87,20 +100,12 @@ function waitForCloudInitDone(
 function shutdownVm(
   host: string,
   port: number,
-  user: string = "dev",
+  keyPath: string,
 ): Promise<void> {
   return new Promise((resolve) => {
     const child = spawn(
       "ssh",
-      [
-        ...SSH_OPTS,
-        "-o",
-        "BatchMode=yes",
-        "-p",
-        String(port),
-        `${user}@${host}`,
-        "sudo poweroff",
-      ],
+      [...bakeSshArgs(keyPath, port, host), "sudo poweroff"],
       { stdio: "ignore" },
     );
     child.on("close", () => resolve());
@@ -147,11 +152,11 @@ export async function ensureBakedImage(config: ProjectConfig): Promise<string> {
 
   const seedIso = join(tmpDir, "seed.iso");
   const sshPort = await allocateSshPort();
-  const sshKeys = await getSshAgentKeys();
+  const { keyPath, pubKey } = await generateTempKeyPair(tmpDir);
 
   await createSeedIso(seedIso, {
     hostname: "bake-tmp",
-    sshAuthorizedKeys: sshKeys,
+    sshAuthorizedKeys: [pubKey],
     customCloudInit: config.customCloudInit,
   });
 
@@ -167,13 +172,13 @@ export async function ensureBakedImage(config: ProjectConfig): Promise<string> {
 
   try {
     console.log("Waiting for SSH...");
-    await waitForSsh("localhost", sshPort);
+    await waitForSsh({ host: "localhost", port: sshPort, identityFile: keyPath });
 
     console.log("Waiting for cloud-init to finish...");
-    await waitForCloudInitDone("localhost", sshPort);
+    await waitForCloudInitDone("localhost", sshPort, keyPath);
 
     console.log("Shutting down bake VM...");
-    await shutdownVm("localhost", sshPort);
+    await shutdownVm("localhost", sshPort, keyPath);
     await waitForPidExit(pid, 30_000);
   } catch (err) {
     try {
