@@ -66,23 +66,5 @@ export async function stop(args: ParsedArgs): Promise<void> {
     return;
   }
 
-  const name = sandboxName();
-  await stopOne(name);
-  await cleanStaleDirs(name);
-}
-
-async function cleanStaleDirs(currentName: string): Promise<void> {
-  const hash = currentName.split("-").pop();
-  if (!hash) return;
-  const all = await listAll();
-  for (const sb of all) {
-    if (
-      sb.name !== currentName &&
-      sb.name.endsWith(`-${hash}`) &&
-      !sb.running
-    ) {
-      console.log(`${sb.name}: cleaning stale state`);
-      await removeState(sb.name);
-    }
-  }
+  await stopOne(sandboxName());
 }
