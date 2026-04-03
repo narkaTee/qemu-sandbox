@@ -4,7 +4,13 @@ import { launchVm, waitForSsh } from "../qemu.ts";
 import { enterSsh } from "../ssh.ts";
 import { getSshAgentKeys } from "../ssh-keys.ts";
 import { allocateSshPort } from "../ssh-port.ts";
-import { sandboxName, stateDir, isRunning, readSshPort } from "../state.ts";
+import {
+  sandboxName,
+  stateDir,
+  isRunning,
+  readSshPort,
+  writeState,
+} from "../state.ts";
 import { loadProjectConfig } from "../project-config.ts";
 import { ensureBakedImage } from "../bake.ts";
 import type { ParsedArgs } from "../bin/sandbox.ts";
@@ -53,6 +59,7 @@ export async function start(_args: ParsedArgs): Promise<void> {
     cpus: config.settings.cpus ?? undefined,
     mounts: config.mounts,
   });
+  await writeState(name, { pid, sshPort });
   console.log(`QEMU started (PID: ${pid})`);
 
   console.log("Waiting for SSH...");

@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile } from "node:fs/promises";
 import { arch, platform } from "node:os";
 import { join } from "node:path";
 import { exec } from "./exec.ts";
@@ -64,7 +64,7 @@ export async function launchVm(config: VmConfig): Promise<number> {
   await mkdir(config.stateDir, { recursive: true });
 
   const overlayPath = join(config.stateDir, "overlay.qcow2");
-  const pidFile = join(config.stateDir, "qemu.pid");
+  const pidFile = join(config.stateDir, "vm.pid");
 
   await createOverlay(config.baseImage, overlayPath);
 
@@ -132,10 +132,6 @@ export async function launchVm(config: VmConfig): Promise<number> {
       }
       try {
         const pid = parseInt((await readFile(pidFile, "utf-8")).trim(), 10);
-        await writeFile(
-          join(config.stateDir, "ssh.port"),
-          String(config.sshPort),
-        );
         resolve(pid);
       } catch (err) {
         reject(new Error(`QEMU started but no PID file found: ${err}`));

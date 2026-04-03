@@ -1,5 +1,12 @@
 import { createHash } from "node:crypto";
-import { readFile, readdir, rm, stat } from "node:fs/promises";
+import {
+  readFile,
+  readdir,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 
@@ -19,25 +26,43 @@ export function stateDir(name: string): string {
   return join(VMS_DIR, name);
 }
 
-async function readStateInt(
-  name: string,
-  filename: string,
-): Promise<number | null> {
+interface SandboxState {
+  pid: number;
+  sshPort: number;
+}
+
+async function readState(name: string): Promise<SandboxState | null> {
   try {
-    const raw = await readFile(join(stateDir(name), filename), "utf-8");
-    const value = parseInt(raw.trim(), 10);
-    return Number.isNaN(value) ? null : value;
+    const raw = await readFile(join(stateDir(name), "state.json"), "utf-8");
+    const data = JSON.parse(raw);
+    if (typeof data.pid !== "number" || typeof data.sshPort !== "number") {
+      return null;
+    }
+    return data as SandboxState;
   } catch {
     return null;
   }
 }
 
-export function readPid(name: string): Promise<number | null> {
-  return readStateInt(name, "qemu.pid");
+export async function writeState(
+  name: string,
+  state: SandboxState,
+): Promise<void> {
+  const dir = stateDir(name);
+  const tmp = join(dir, "state.json.tmp");
+  const dest = join(dir, "state.json");
+  await writeFile(tmp, JSON.stringify(state));
+  await rename(tmp, dest);
 }
 
-export function readSshPort(name: string): Promise<number | null> {
-  return readStateInt(name, "ssh.port");
+export async function readPid(name: string): Promise<number | null> {
+  const state = await readState(name);
+  return state?.pid ?? null;
+}
+
+export async function readSshPort(name: string): Promise<number | null> {
+  const state = await readState(name);
+  return state?.sshPort ?? null;
 }
 
 export function isProcessRunning(pid: number): boolean {
@@ -50,8 +75,8 @@ export function isProcessRunning(pid: number): boolean {
 }
 
 export async function isRunning(name: string): Promise<boolean> {
-  const pid = await readPid(name);
-  return pid !== null && isProcessRunning(pid);
+  const state = await readState(name);
+  return state !== null && isProcessRunning(state.pid);
 }
 
 export async function removeState(name: string): Promise<void> {
@@ -79,15 +104,16 @@ export async function listAll(): Promise<SandboxInfo[]> {
   }
 
   const results: SandboxInfo[] = [];
-  for (const name of entries) {
-    const dir = join(VMS_DIR, name);
+  for (const entry of entries) {
+    const dir = join(VMS_DIR, entry);
     const info = await stat(dir);
     if (!info.isDirectory()) continue;
 
-    const pid = await readPid(name);
-    const sshPort = await readSshPort(name);
+    const state = await readState(entry).catch(() => null);
+    const pid = state?.pid ?? null;
+    const sshPort = state?.sshPort ?? null;
     const running = pid !== null && isProcessRunning(pid);
-    results.push({ name, pid, sshPort, running });
+    results.push({ name: entry, pid, sshPort, running });
   }
   return results;
 }
