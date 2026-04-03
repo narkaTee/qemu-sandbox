@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import {
   readFile,
   readdir,
@@ -70,9 +71,14 @@ export async function readSshPort(name: string): Promise<number | null> {
 export function isProcessRunning(pid: number): boolean {
   try {
     process.kill(pid, 0);
-    return true;
   } catch {
     return false;
+  }
+  try {
+    const cmdline = readFileSync(`/proc/${pid}/cmdline`, "utf-8");
+    return cmdline.includes("qemu");
+  } catch {
+    return process.platform !== "linux";
   }
 }
 
