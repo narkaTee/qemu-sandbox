@@ -56,6 +56,7 @@ function mergeCustomCloudInit(
   custom: Record<string, unknown>,
 ): void {
   for (const [key, value] of Object.entries(custom)) {
+    if (value == null) continue;
     if (PROTECTED_KEYS.has(key)) {
       console.warn(
         `cloud-init: ignoring protected key '${key}' from custom config`,

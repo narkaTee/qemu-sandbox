@@ -73,7 +73,7 @@ function waitForCloudInitDone(
 
       const child = spawn(
         "ssh",
-        [...bakeSshArgs(keyPath, port, host), "cloud-init status --wait"],
+        [...bakeSshArgs(keyPath, port, host), "cloud-init status"],
         { stdio: ["ignore", "pipe", "ignore"] },
       );
 
@@ -83,7 +83,15 @@ function waitForCloudInitDone(
       });
 
       child.on("close", (code) => {
-        if ((code === 0 || code === 2) && stdout.includes("done")) {
+        if (code !== null && stdout.includes("done")) {
+          resolve();
+        } else if (
+          code !== null &&
+          (stdout.includes("error") || stdout.includes("degraded"))
+        ) {
+          console.warn(
+            "cloud-init finished with errors; continuing bake anyway",
+          );
           resolve();
         } else {
           setTimeout(attempt, 5000);
