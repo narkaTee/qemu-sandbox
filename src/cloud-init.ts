@@ -37,11 +37,6 @@ function renderUserData(config: CloudInitConfig): string {
   }
   lines.push("ssh_pwauth: true");
   if (config.mounts?.length) {
-    lines.push("bootcmd:");
-    lines.push("  - modprobe 9pnet_virtio");
-    for (const [i, m] of config.mounts.entries()) {
-      lines.push(`  - mkdir -p ${m.guest}`);
-    }
     lines.push("mounts:");
     for (const [i, m] of config.mounts.entries()) {
       const tag = `mount${i}`;

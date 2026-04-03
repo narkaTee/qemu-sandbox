@@ -7,7 +7,7 @@ const VMS_DIR = join(homedir(), ".cache", "qemu-sandbox", "vms");
 
 export function sandboxName(dir: string = process.cwd()): string {
   const absPath = resolve(dir);
-  const base = basename(absPath).replace(/[^a-zA-Z0-9]/g, "_");
+  const base = basename(absPath).replace(/[^a-zA-Z0-9]/g, "-");
   const hash = createHash("sha256").update(absPath).digest("hex").slice(0, 8);
   return `sandbox-${base}-${hash}`;
 }
