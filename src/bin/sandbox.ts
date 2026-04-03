@@ -5,6 +5,7 @@ import { stop } from "../commands/stop.ts";
 import { list } from "../commands/list.ts";
 import { info } from "../commands/info.ts";
 import { bake } from "../commands/bake.ts";
+import { code } from "../commands/code.ts";
 
 export interface ParsedArgs {
   command: string | null;
@@ -145,6 +146,8 @@ async function main(): Promise<void> {
       await bake();
       break;
     case "code":
+      await code(args);
+      break;
     case "idea":
     case "sync":
       console.error(`sandbox: '${command}' not yet implemented`);
