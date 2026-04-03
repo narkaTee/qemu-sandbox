@@ -1,0 +1,23 @@
+{
+  "name": "sandbox",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "sandbox": "src/bin/sandbox.ts"
+  },
+  "scripts": {
+    "start": "node src/bin/sandbox.ts",
+    "typecheck": "tsc --noEmit",
+    "fmt": "prettier --list-different src/ | xargs -r prettier --write",
+    "fmt:check": "prettier --list-different src/",
+    "test": "node --test --test-reporter=dot test/*.test.ts test/**/*.test.ts"
+  },
+  "engines": {
+    "node": ">=23"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "prettier": "^3.8.1",
+    "typescript": "^6.0"
+  }
+}
