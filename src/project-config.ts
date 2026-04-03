@@ -1,5 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { parse } from "yaml";
 
 const CONFIG_DIR = ".qemu-sandbox";
 
@@ -29,49 +30,32 @@ async function fileExists(path: string): Promise<boolean> {
   );
 }
 
-function parseMountsYaml(text: string): MountEntry[] {
-  const entries: MountEntry[] = [];
-  let current: Partial<MountEntry> | null = null;
-
-  for (const raw of text.split("\n")) {
-    const line = raw.trim();
-    if (!line || line.startsWith("#")) continue;
-
-    if (line.startsWith("- ")) {
-      if (current?.host && current?.guest) {
-        entries.push({
-          host: current.host,
-          guest: current.guest,
-          readonly: current.readonly ?? false,
-        });
-      }
-      current = {};
-      const inline = line.slice(2).trim();
-      if (inline) parseField(current, inline);
-      continue;
-    }
-
-    if (current) parseField(current, line);
-  }
-
-  if (current?.host && current?.guest) {
-    entries.push({
-      host: current.host,
-      guest: current.guest,
-      readonly: current.readonly ?? false,
-    });
-  }
-
-  return entries;
+function parseMounts(raw: unknown): MountEntry[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (e) =>
+        e &&
+        typeof e === "object" &&
+        typeof e.host === "string" &&
+        typeof e.guest === "string",
+    )
+    .map((e) => ({
+      host: e.host as string,
+      guest: e.guest as string,
+      readonly: e.readonly === true,
+    }));
 }
 
-function parseField(entry: Partial<MountEntry>, line: string): void {
-  const match = line.match(/^(\w+):\s*(.+)$/);
-  if (!match) return;
-  const [, key, value] = match;
-  if (key === "host") entry.host = value.trim();
-  else if (key === "guest") entry.guest = value.trim();
-  else if (key === "readonly") entry.readonly = value.trim() === "true";
+function parseSettings(raw: unknown): SandboxSettings {
+  const defaults: SandboxSettings = { image: null, memory: null, cpus: null };
+  if (!raw || typeof raw !== "object") return defaults;
+  const obj = raw as Record<string, unknown>;
+  return {
+    image: typeof obj.image === "string" ? obj.image : null,
+    memory: typeof obj.memory === "number" ? obj.memory : null,
+    cpus: typeof obj.cpus === "number" ? obj.cpus : null,
+  };
 }
 
 export function resolveMounts(
@@ -84,21 +68,6 @@ export function resolveMounts(
   }));
 }
 
-function parseSandboxYaml(text: string): SandboxSettings {
-  const settings: SandboxSettings = { image: null, memory: null, cpus: null };
-  for (const raw of text.split("\n")) {
-    const line = raw.trim();
-    if (!line || line.startsWith("#")) continue;
-    const match = line.match(/^(\w+):\s*(.+)$/);
-    if (!match) continue;
-    const [, key, value] = match;
-    if (key === "image") settings.image = value.trim();
-    else if (key === "memory") settings.memory = parseInt(value.trim(), 10);
-    else if (key === "cpus") settings.cpus = parseInt(value.trim(), 10);
-  }
-  return settings;
-}
-
 export async function loadProjectConfig(
   projectRoot: string = process.cwd(),
 ): Promise<ProjectConfig> {
@@ -108,7 +77,7 @@ export async function loadProjectConfig(
   const mountsPath = join(configDir, "mounts.yaml");
 
   const settings = (await fileExists(sandboxPath))
-    ? parseSandboxYaml(await readFile(sandboxPath, "utf-8"))
+    ? parseSettings(parse(await readFile(sandboxPath, "utf-8")))
     : { image: null, memory: null, cpus: null };
 
   const customCloudInit = (await fileExists(cloudInitPath))
@@ -117,8 +86,10 @@ export async function loadProjectConfig(
 
   let mounts: MountEntry[] = [];
   if (await fileExists(mountsPath)) {
-    const raw = await readFile(mountsPath, "utf-8");
-    mounts = resolveMounts(parseMountsYaml(raw), projectRoot);
+    mounts = resolveMounts(
+      parseMounts(parse(await readFile(mountsPath, "utf-8"))),
+      projectRoot,
+    );
   }
 
   return { projectRoot, settings, customCloudInit, mounts };

@@ -172,7 +172,11 @@ export async function ensureBakedImage(config: ProjectConfig): Promise<string> {
 
   try {
     console.log("Waiting for SSH...");
-    await waitForSsh({ host: "localhost", port: sshPort, identityFile: keyPath });
+    await waitForSsh({
+      host: "localhost",
+      port: sshPort,
+      identityFile: keyPath,
+    });
 
     console.log("Waiting for cloud-init to finish...");
     await waitForCloudInitDone("localhost", sshPort, keyPath);

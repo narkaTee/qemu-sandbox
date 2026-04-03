@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { platform } from "node:os";
+import { stringify, parse } from "yaml";
 import { exec } from "./exec.ts";
 import type { MountEntry } from "./project-config.ts";
 
@@ -11,50 +12,58 @@ export interface CloudInitConfig {
   mounts?: MountEntry[];
 }
 
-function yamlEscape(value: string): string {
-  if (/[\n\r"'\\:#{}[\],&*?|>!%@`]/.test(value)) {
-    return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-  }
-  return value;
-}
+function buildUserData(config: CloudInitConfig): Record<string, unknown> {
+  const doc: Record<string, unknown> = {};
 
-function renderUserData(config: CloudInitConfig): string {
-  const lines = ["#cloud-config"];
   if (config.hostname) {
-    lines.push(`hostname: ${yamlEscape(config.hostname)}`);
+    doc.hostname = config.hostname;
   }
-  lines.push("users:");
-  lines.push("  - name: dev");
-  lines.push("    plain_text_passwd: dev");
-  lines.push("    shell: /bin/bash");
-  lines.push("    sudo: ALL=(ALL) NOPASSWD:ALL");
-  lines.push("    lock_passwd: false");
+
+  const user: Record<string, unknown> = {
+    name: "dev",
+    plain_text_passwd: "dev",
+    shell: "/bin/bash",
+    sudo: "ALL=(ALL) NOPASSWD:ALL",
+    lock_passwd: false,
+  };
   if (config.sshAuthorizedKeys?.length) {
-    lines.push("    ssh_authorized_keys:");
-    for (const key of config.sshAuthorizedKeys) {
-      lines.push(`      - ${yamlEscape(key)}`);
-    }
+    user.ssh_authorized_keys = config.sshAuthorizedKeys;
   }
-  lines.push("ssh_pwauth: true");
+  doc.users = [user];
+
+  doc.ssh_pwauth = true;
+
   if (config.mounts?.length) {
-    lines.push("mounts:");
-    for (const [i, m] of config.mounts.entries()) {
+    doc.mounts = config.mounts.map((m, i) => {
       const tag = `mount${i}`;
       const opts = `trans=virtio${m.readonly ? ",ro" : ""}`;
-      lines.push(
-        `  - [${yamlEscape(tag)}, ${yamlEscape(m.guest)}, "9p", ${yamlEscape(opts)}, "0", "0"]`,
-      );
+      return [tag, m.guest, "9p", opts, "0", "0"];
+    });
+  }
+
+  if (config.customCloudInit) {
+    const custom = parse(config.customCloudInit) as Record<string, unknown>;
+    for (const [key, value] of Object.entries(custom)) {
+      if (key in doc && Array.isArray(doc[key]) && Array.isArray(value)) {
+        doc[key] = [...(doc[key] as unknown[]), ...value];
+      } else {
+        doc[key] = value;
+      }
     }
   }
-  if (config.customCloudInit) {
-    const custom = config.customCloudInit.replace(/^#cloud-config\s*\n?/, "");
-    lines.push(custom.trimEnd());
-  }
-  return lines.join("\n") + "\n";
+
+  return doc;
+}
+
+export function renderUserData(config: CloudInitConfig): string {
+  return "#cloud-config\n" + stringify(buildUserData(config));
 }
 
 function renderMetaData(config: CloudInitConfig): string {
-  return `instance-id: ${config.hostname}\nlocal-hostname: ${config.hostname}\n`;
+  return stringify({
+    "instance-id": config.hostname,
+    "local-hostname": config.hostname,
+  });
 }
 
 export async function createSeedIso(
