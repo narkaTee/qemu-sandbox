@@ -7,6 +7,7 @@ import { info } from "../commands/info.ts";
 import { bake } from "../commands/bake.ts";
 import { code } from "../commands/code.ts";
 import { idea } from "../commands/idea.ts";
+import { sync as syncCmd } from "../commands/sync.ts";
 
 export interface ParsedArgs {
   command: string | null;
@@ -130,8 +131,8 @@ async function main(): Promise<void> {
       await idea(args);
       break;
     case "sync":
-      console.error(`sandbox: '${command}' not yet implemented`);
-      process.exit(1);
+      await syncCmd(args);
+      break;
   }
 }
 
