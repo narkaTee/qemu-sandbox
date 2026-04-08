@@ -75,6 +75,8 @@ mount-workspace: true
 | `mount-workspace`      | Mount project directory into VM      | `false`     |
 | `mount-agent-configs`  | List of agent configs to mount       | `[]`        |
 
+Available images: `debian-13`, `nixos`.
+
 > **⚠️ mount-workspace weakens the sandbox.** When enabled, the VM has direct read/write access to your project directory on the host via a virtio-9p mount. Anything running inside the VM can read, modify, or create executable files on your host disk. The `sync` command is disabled when this is active since files are already shared.
 
 ### `.qemu-sandbox/cloud-init.yaml`
@@ -147,4 +149,35 @@ Directories are mounted via virtio-9p. Single files (like `~/.claude.json`) are 
 
 ## Baking
 
-Running `qemu-sandbox bake` creates a snapshot image with all cloud-init provisioning already applied. Subsequent `qemu-sandbox` starts use the baked image, skipping the cloud-init boot phase. The baked image is cached and rebuilt automatically when `cloud-init.yaml` or the base image changes.
+Running `qemu-sandbox bake` creates a snapshot image with all provisioning already applied. Subsequent `qemu-sandbox` starts use the baked image, skipping the provisioning phase. The baked image is cached and rebuilt automatically when configuration changes.
+
+### Debian / Cloud Images
+
+Customization via `cloud-init.yaml`. The bake process boots the VM, runs cloud-init, and snapshots the result.
+
+### NixOS
+
+The NixOS image is built with `nix build`. Customization is done via a NixOS module at `.qemu-sandbox/nixos.nix`:
+
+```nix
+{ pkgs, ... }:
+{
+  environment.systemPackages = with pkgs; [
+    ripgrep
+    fd
+    jq
+  ];
+
+  services.postgresql.enable = true;
+}
+```
+
+This is a standard NixOS module — you have full access to the NixOS option system. You can add packages, enable services, configure the kernel, set up users, etc.
+
+The baked image is cached by the hash of `nixos.nix`. Changing the file triggers a rebuild on the next `qemu-sandbox bake` or `qemu-sandbox start`.
+
+> **Note:** NixOS baking requires the `nix` CLI with flakes enabled. Add the following to `~/.config/nix/nix.conf` or `/etc/nix/nix.conf`:
+>
+> ```
+> experimental-features = nix-command flakes
+> ```

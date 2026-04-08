@@ -28,8 +28,8 @@ export async function start(_args: ParsedArgs): Promise<void> {
   const sd = stateDir(name);
   const config = await loadProjectConfig();
 
-  const baseImage = await ensureBakedImage(config);
-  console.log(`Image ready: ${baseImage}`);
+  const image = await ensureBakedImage(config);
+  console.log(`Image ready: ${image.diskImage}`);
 
   const sshKeys = await getSshAgentKeys();
   if (sshKeys.length > 0) {
@@ -39,25 +39,36 @@ export async function start(_args: ParsedArgs): Promise<void> {
   const sshPort = await allocateSshPort();
   console.log(`Allocated SSH port: ${sshPort}`);
 
-  const seedIso = join(sd, "seed.iso");
-  console.log("Generating cloud-init seed ISO...");
-  await createSeedIso(seedIso, {
-    hostname: name,
-    sshAuthorizedKeys: sshKeys,
-    mounts: config.mounts,
-  });
+  let seedIso: string | undefined;
+  let fwCfg: Record<string, string> | undefined;
+
+  if (image.useFwCfg) {
+    fwCfg = { hostname: name };
+    if (sshKeys.length > 0) {
+      fwCfg.ssh_keys = Buffer.from(sshKeys.join("\n")).toString("base64");
+    }
+  } else {
+    seedIso = join(sd, "seed.iso");
+    console.log("Generating cloud-init seed ISO...");
+    await createSeedIso(seedIso, {
+      hostname: name,
+      sshAuthorizedKeys: sshKeys,
+      mounts: config.mounts,
+    });
+  }
 
   console.log("Starting QEMU...");
   const bootStart = Date.now();
   const pid = await launchVm({
     name,
     stateDir: sd,
-    baseImage,
+    baseImage: image.diskImage,
     seedIso,
     sshPort,
     memory: config.settings.memory ?? undefined,
     cpus: config.settings.cpus ?? undefined,
     mounts: config.mounts,
+    fwCfg,
   });
   await writeState(name, { pid, sshPort });
   console.log(`QEMU started (PID: ${pid})`);

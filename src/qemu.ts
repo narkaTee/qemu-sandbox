@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { access, mkdir, readFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { arch, platform } from "node:os";
 import { join } from "node:path";
 import { exec } from "./exec.ts";
@@ -35,11 +35,12 @@ export interface VmConfig {
   name: string;
   stateDir: string;
   baseImage: string;
-  seedIso: string;
+  seedIso?: string;
   sshPort: number;
   memory?: number;
   cpus?: number;
   mounts?: MountEntry[];
+  fwCfg?: Record<string, string>;
 }
 
 export async function createOverlay(
@@ -58,6 +59,16 @@ export async function createOverlay(
     overlayPath,
     `${sizeGb}G`,
   ]);
+}
+
+async function writeFwCfgFile(
+  dir: string,
+  name: string,
+  content: string,
+): Promise<string> {
+  const path = join(dir, `fwcfg-${name}`);
+  await writeFile(path, content);
+  return path;
 }
 
 export async function launchVm(config: VmConfig): Promise<number> {
@@ -90,8 +101,6 @@ export async function launchVm(config: VmConfig): Promise<number> {
     "none",
     "-drive",
     `file=${overlayPath},if=virtio,cache=writeback`,
-    "-drive",
-    `file=${config.seedIso},if=virtio,format=raw,media=cdrom`,
     "-netdev",
     `user,id=net0,hostfwd=tcp::${config.sshPort}-:22`,
     "-device",
@@ -104,6 +113,20 @@ export async function launchVm(config: VmConfig): Promise<number> {
     pidFile,
     "-daemonize",
   ];
+
+  if (config.seedIso) {
+    args.push(
+      "-drive",
+      `file=${config.seedIso},if=virtio,format=raw,media=cdrom`,
+    );
+  }
+
+  if (config.fwCfg) {
+    for (const [key, value] of Object.entries(config.fwCfg)) {
+      const filePath = await writeFwCfgFile(config.stateDir, key, value);
+      args.push("-fw_cfg", `name=opt/com.sandbox/${key},file=${filePath}`);
+    }
+  }
 
   if (config.mounts?.length) {
     for (const [i, m] of config.mounts.entries()) {

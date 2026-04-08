@@ -1,8 +1,10 @@
 import type { ImageProvider } from "./provider.ts";
 import { debianProvider } from "./debian.ts";
+import { nixosProvider } from "./nixos.ts";
 
 const providers: Record<string, ImageProvider> = {
   "debian-13": debianProvider,
+  nixos: nixosProvider,
 };
 
 const DEFAULT_IMAGE = "debian-13";
