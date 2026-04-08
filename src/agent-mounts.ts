@@ -21,15 +21,15 @@ const AGENTS: Record<string, AgentEntry[]> = {
     { host: "~/.claude", guest: "/home/dev/.claude", type: "dir" },
     { host: "~/.claude.json", guest: "/home/dev/.claude.json", type: "file" },
   ],
-  gemini: [
-    { host: "~/.gemini", guest: "/home/dev/.gemini", type: "dir" },
-  ],
+  gemini: [{ host: "~/.gemini", guest: "/home/dev/.gemini", type: "dir" }],
   opencode: [
-    { host: "~/.config/opencode", guest: "/home/dev/.config/opencode", type: "dir" },
+    {
+      host: "~/.config/opencode",
+      guest: "/home/dev/.config/opencode",
+      type: "dir",
+    },
   ],
-  pi: [
-    { host: "~/.pi", guest: "/home/dev/.pi", type: "dir" },
-  ],
+  pi: [{ host: "~/.pi", guest: "/home/dev/.pi", type: "dir" }],
 };
 
 export const KNOWN_AGENTS = Object.keys(AGENTS);
@@ -43,7 +43,7 @@ function resolveHome(path: string): string {
 
 async function pathExists(path: string, type: EntryType): Promise<boolean> {
   return stat(path).then(
-    (s) => type === "dir" ? s.isDirectory() : s.isFile(),
+    (s) => (type === "dir" ? s.isDirectory() : s.isFile()),
     () => false,
   );
 }

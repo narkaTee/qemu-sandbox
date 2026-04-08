@@ -49,15 +49,11 @@ export function deriveGuestPath(host: string): string {
 export function parseMounts(raw: unknown): MountEntry[] {
   if (!Array.isArray(raw)) return [];
   return raw
-    .filter(
-      (e) =>
-        e &&
-        typeof e === "object" &&
-        typeof e.host === "string",
-    )
+    .filter((e) => e && typeof e === "object" && typeof e.host === "string")
     .map((e) => {
       const host = e.host as string;
-      const guest = typeof e.guest === "string" ? e.guest : deriveGuestPath(host);
+      const guest =
+        typeof e.guest === "string" ? e.guest : deriveGuestPath(host);
       return {
         host,
         guest,
@@ -83,7 +79,9 @@ export function parseSettings(raw: unknown): SandboxSettings {
     cpus: typeof obj.cpus === "number" ? obj.cpus : null,
     "mount-workspace": obj["mount-workspace"] === true,
     "mount-agent-configs": Array.isArray(obj["mount-agent-configs"])
-      ? obj["mount-agent-configs"].filter((v): v is string => typeof v === "string")
+      ? obj["mount-agent-configs"].filter(
+          (v): v is string => typeof v === "string",
+        )
       : [],
   };
 }
@@ -97,9 +95,10 @@ export function mergeSettings(
     memory: local.memory ?? global.memory,
     cpus: local.cpus ?? global.cpus,
     "mount-workspace": local["mount-workspace"] || global["mount-workspace"],
-    "mount-agent-configs": local["mount-agent-configs"].length > 0
-      ? local["mount-agent-configs"]
-      : global["mount-agent-configs"],
+    "mount-agent-configs":
+      local["mount-agent-configs"].length > 0
+        ? local["mount-agent-configs"]
+        : global["mount-agent-configs"],
   };
 }
 

@@ -26,9 +26,7 @@ export function enterSsh(
   });
 }
 
-function scp(
-  args: string[],
-): Promise<void> {
+function scp(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn("scp", args, { stdio: "inherit" });
     child.on("close", (code) => {
@@ -65,10 +63,12 @@ export async function copyFilesToVm(
   user: string,
   copies: FileCopy[],
 ): Promise<void> {
-  const dirs = new Set(copies.map((c) => {
-    const lastSlash = c.guest.lastIndexOf("/");
-    return lastSlash > 0 ? c.guest.slice(0, lastSlash) : "/";
-  }));
+  const dirs = new Set(
+    copies.map((c) => {
+      const lastSlash = c.guest.lastIndexOf("/");
+      return lastSlash > 0 ? c.guest.slice(0, lastSlash) : "/";
+    }),
+  );
 
   if (dirs.size > 0) {
     await sshExec(host, port, user, `mkdir -p ${[...dirs].join(" ")}`);
@@ -77,7 +77,8 @@ export async function copyFilesToVm(
   for (const copy of copies) {
     await scp([
       ...SSH_OPTS,
-      "-P", String(port),
+      "-P",
+      String(port),
       copy.host,
       `${user}@${host}:${copy.guest}`,
     ]);
