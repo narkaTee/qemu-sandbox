@@ -1,0 +1,10 @@
+- host: shared-cache
+  guest: /home/dev/.cache/example
+
+- host: readonly-fixtures
+  guest: /opt/fixtures
+  readonly: true
+
+- host: ~/.config
+  guest: /home/dev/host-config
+  readonly: true

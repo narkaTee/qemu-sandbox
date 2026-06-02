@@ -1,0 +1,20 @@
+# Configuration examples
+
+Each example is a small project directory with a `.qemu-sandbox` configuration.
+Copy one into a project or run `qemu-sandbox` from inside the example directory.
+
+## Examples
+
+- `qemu-debian` — QEMU backend with the Debian cloud image and cloud-init customization.
+- `qemu-nixos` — QEMU backend with the NixOS image and a NixOS module.
+- `gondolin-oci` — Gondolin backend built from `ghcr.io/narkatee/sandbox-container:latest`.
+- `mounts-and-agent-configs` — host mounts, readonly mounts, workspace mount, and agent config mounting.
+
+## Usage
+
+```sh
+cd examples/qemu-debian
+qemu-sandbox
+```
+
+Or copy the `.qemu-sandbox` directory into your own project.

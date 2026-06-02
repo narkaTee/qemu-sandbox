@@ -29,9 +29,15 @@ export function stateDir(name: string): string {
   return join(VMS_DIR, name);
 }
 
+export type SandboxBackend = "qemu" | "gondolin";
+
 interface SandboxState {
   pid: number;
   sshPort: number;
+  backend?: SandboxBackend;
+  gondolinSessionId?: string;
+  gondolinAssetsPath?: string;
+  gondolinSshIdentityFile?: string;
 }
 
 async function readState(name: string): Promise<SandboxState | null> {
@@ -39,6 +45,13 @@ async function readState(name: string): Promise<SandboxState | null> {
     const raw = await readFile(join(stateDir(name), "state.json"), "utf-8");
     const data = JSON.parse(raw);
     if (typeof data.pid !== "number" || typeof data.sshPort !== "number") {
+      return null;
+    }
+    if (
+      data.backend !== undefined &&
+      data.backend !== "qemu" &&
+      data.backend !== "gondolin"
+    ) {
       return null;
     }
     return data as SandboxState;
@@ -68,6 +81,18 @@ export async function readSshPort(name: string): Promise<number | null> {
   return state?.sshPort ?? null;
 }
 
+export async function readBackend(name: string): Promise<SandboxBackend> {
+  const state = await readState(name);
+  return state?.backend ?? "qemu";
+}
+
+export async function readSshIdentityFile(
+  name: string,
+): Promise<string | null> {
+  const state = await readState(name);
+  return state?.gondolinSshIdentityFile ?? null;
+}
+
 export function isProcessRunning(pid: number): boolean {
   try {
     process.kill(pid, 0);
@@ -76,7 +101,7 @@ export function isProcessRunning(pid: number): boolean {
   }
   try {
     const cmdline = readFileSync(`/proc/${pid}/cmdline`, "utf-8");
-    return cmdline.includes("qemu");
+    return cmdline.includes("qemu") || cmdline.includes("gondolin-runner");
   } catch {
     return process.platform !== "linux";
   }
@@ -100,6 +125,7 @@ export interface SandboxInfo {
   name: string;
   pid: number | null;
   sshPort: number | null;
+  backend: SandboxBackend;
   running: boolean;
 }
 
@@ -121,8 +147,9 @@ export async function listAll(): Promise<SandboxInfo[]> {
     const state = await readState(entry).catch(() => null);
     const pid = state?.pid ?? null;
     const sshPort = state?.sshPort ?? null;
+    const backend = state?.backend ?? "qemu";
     const running = pid !== null && isProcessRunning(pid);
-    results.push({ name: entry, pid, sshPort, running });
+    results.push({ name: entry, pid, sshPort, backend, running });
   }
   return results;
 }

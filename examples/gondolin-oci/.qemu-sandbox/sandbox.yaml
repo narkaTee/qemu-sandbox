@@ -1,0 +1,4 @@
+backend: gondolin
+memory: 4096
+cpus: 4
+mount-workspace: true

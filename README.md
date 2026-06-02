@@ -6,6 +6,7 @@ QEMU-based development sandboxes. Spins up a Linux VM from your project director
 
 - **QEMU** (`qemu-system-x86_64` or `qemu-system-aarch64`)
 - **ISO tool** (Linux only): `genisoimage`, `mkisofs`, or `xorriso`
+- **Docker or Podman** for the `gondolin` backend OCI image build
 - **rsync** (for `sync` command)
 - **Node.js** ≥ 23
 
@@ -61,6 +62,7 @@ Place configuration files in a `.qemu-sandbox/` directory at the project root. S
 VM settings:
 
 ```yaml
+backend: qemu
 cpus: 4
 memory: 8000
 image: debian-13
@@ -69,13 +71,16 @@ mount-workspace: true
 
 | Field              | Description                          | Default     |
 |--------------------|--------------------------------------|-------------|
+| `backend`          | VM backend: `qemu` or `gondolin`     | `qemu`      |
 | `cpus`             | Number of virtual CPUs               | auto        |
 | `memory`           | Memory in MB                         | auto        |
-| `image`            | Base image name                      | `debian-13` |
+| `image`            | Base image name for QEMU backend     | `debian-13` |
 | `mount-workspace`      | Mount project directory into VM      | `false`     |
 | `mount-agent-configs`  | List of agent configs to mount       | `[]`        |
 
-Available images: `debian-13`, `nixos`.
+Available QEMU images: `debian-13`, `nixos`.
+
+The `gondolin` backend builds Gondolin guest assets from OCI image `ghcr.io/narkatee/sandbox-container:latest` and exposes SSH for existing editor workflows.
 
 > **⚠️ mount-workspace weakens the sandbox.** When enabled, the VM has direct read/write access to your project directory on the host via a virtio-9p mount. Anything running inside the VM can read, modify, or create executable files on your host disk. The `sync` command is disabled when this is active since files are already shared.
 

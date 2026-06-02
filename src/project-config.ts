@@ -14,12 +14,24 @@ export interface MountEntry {
   readonly: boolean;
 }
 
+export type SandboxBackend = "qemu" | "gondolin";
+
 export interface SandboxSettings {
+  backend: SandboxBackend;
   image: string | null;
   memory: number | null;
   cpus: number | null;
   "mount-workspace": boolean;
   "mount-agent-configs": string[];
+}
+
+interface ParsedSandboxSettings {
+  backend?: SandboxBackend;
+  image?: string;
+  memory?: number;
+  cpus?: number;
+  "mount-workspace"?: boolean;
+  "mount-agent-configs"?: string[];
 }
 
 export interface ProjectConfig {
@@ -101,6 +113,7 @@ export function parseMounts(raw: unknown): MountEntry[] {
 }
 
 const DEFAULT_SETTINGS: SandboxSettings = {
+  backend: "qemu",
   image: null,
   memory: null,
   cpus: null,
@@ -108,36 +121,61 @@ const DEFAULT_SETTINGS: SandboxSettings = {
   "mount-agent-configs": [],
 };
 
-export function parseSettings(raw: unknown): SandboxSettings {
-  if (!raw || typeof raw !== "object") return { ...DEFAULT_SETTINGS };
+function parseBackend(value: unknown): SandboxBackend | undefined {
+  if (value === "qemu" || value === "gondolin") return value;
+  return undefined;
+}
+
+function parseOptionalSettings(raw: unknown): ParsedSandboxSettings {
+  if (!raw || typeof raw !== "object") return {};
   const obj = raw as Record<string, unknown>;
   return {
-    image: typeof obj.image === "string" ? obj.image : null,
-    memory: typeof obj.memory === "number" ? obj.memory : null,
-    cpus: typeof obj.cpus === "number" ? obj.cpus : null,
-    "mount-workspace": obj["mount-workspace"] === true,
-    "mount-agent-configs": Array.isArray(obj["mount-agent-configs"])
-      ? obj["mount-agent-configs"].filter(
-          (v): v is string => typeof v === "string",
-        )
-      : [],
+    ...(parseBackend(obj.backend)
+      ? { backend: parseBackend(obj.backend) }
+      : {}),
+    ...(typeof obj.image === "string" ? { image: obj.image } : {}),
+    ...(typeof obj.memory === "number" ? { memory: obj.memory } : {}),
+    ...(typeof obj.cpus === "number" ? { cpus: obj.cpus } : {}),
+    ...(typeof obj["mount-workspace"] === "boolean"
+      ? { "mount-workspace": obj["mount-workspace"] }
+      : {}),
+    ...(Array.isArray(obj["mount-agent-configs"])
+      ? {
+          "mount-agent-configs": obj["mount-agent-configs"].filter(
+            (v): v is string => typeof v === "string",
+          ),
+        }
+      : {}),
   };
 }
 
-export function mergeSettings(
-  global: SandboxSettings,
-  local: SandboxSettings,
+function applySettingsDefaults(
+  settings: ParsedSandboxSettings,
 ): SandboxSettings {
   return {
-    image: local.image ?? global.image,
-    memory: local.memory ?? global.memory,
-    cpus: local.cpus ?? global.cpus,
-    "mount-workspace": local["mount-workspace"] || global["mount-workspace"],
+    backend: settings.backend ?? DEFAULT_SETTINGS.backend,
+    image: settings.image ?? DEFAULT_SETTINGS.image,
+    memory: settings.memory ?? DEFAULT_SETTINGS.memory,
+    cpus: settings.cpus ?? DEFAULT_SETTINGS.cpus,
+    "mount-workspace":
+      settings["mount-workspace"] ?? DEFAULT_SETTINGS["mount-workspace"],
     "mount-agent-configs":
-      local["mount-agent-configs"].length > 0
-        ? local["mount-agent-configs"]
-        : global["mount-agent-configs"],
+      settings["mount-agent-configs"] ??
+      DEFAULT_SETTINGS["mount-agent-configs"],
   };
+}
+
+export function parseSettings(raw: unknown): SandboxSettings {
+  return applySettingsDefaults(parseOptionalSettings(raw));
+}
+
+export function mergeSettings(
+  global: unknown,
+  local: unknown,
+): SandboxSettings {
+  const globalSettings = parseOptionalSettings(global);
+  const localSettings = parseOptionalSettings(local);
+  return applySettingsDefaults({ ...globalSettings, ...localSettings });
 }
 
 export function resolveHostPath(path: string, projectRoot: string): string {
@@ -179,13 +217,9 @@ export async function loadProjectConfig(
 ): Promise<ProjectConfig> {
   const localDir = join(projectRoot, LOCAL_CONFIG_DIR);
 
-  const globalSettings = parseSettings(
-    await loadYaml(join(GLOBAL_CONFIG_DIR, "sandbox.yaml")),
-  );
-  const localSettings = parseSettings(
-    await loadYaml(join(localDir, "sandbox.yaml")),
-  );
-  const settings = mergeSettings(globalSettings, localSettings);
+  const globalRaw = await loadYaml(join(GLOBAL_CONFIG_DIR, "sandbox.yaml"));
+  const localRaw = await loadYaml(join(localDir, "sandbox.yaml"));
+  const settings = mergeSettings(globalRaw, localRaw);
 
   const customCloudInit = (await fileExists(join(localDir, "cloud-init.yaml")))
     ? await readFile(join(localDir, "cloud-init.yaml"), "utf-8")

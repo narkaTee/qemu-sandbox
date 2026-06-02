@@ -1,0 +1,5 @@
+backend: qemu
+image: debian-13
+memory: 4096
+cpus: 4
+mount-workspace: true

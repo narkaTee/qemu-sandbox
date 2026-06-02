@@ -1,0 +1,8 @@
+packages:
+  - git
+  - jq
+  - ripgrep
+  - tmux
+
+runcmd:
+  - /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"

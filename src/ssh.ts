@@ -15,11 +15,18 @@ export function enterSsh(
   host: string,
   port: number,
   user: string,
+  identityFile?: string,
 ): Promise<number> {
   return new Promise((resolve, reject) => {
     const child = spawn(
       "ssh",
-      [...SSH_OPTS, "-p", String(port), `${user}@${host}`],
+      [
+        ...SSH_OPTS,
+        ...(identityFile ? ["-i", identityFile] : []),
+        "-p",
+        String(port),
+        `${user}@${host}`,
+      ],
       { stdio: "inherit" },
     );
     child.on("close", (code) => resolve(code ?? 0));
@@ -43,11 +50,19 @@ function sshExec(
   port: number,
   user: string,
   command: string,
+  identityFile?: string,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(
       "ssh",
-      [...SSH_OPTS, "-p", String(port), `${user}@${host}`, command],
+      [
+        ...SSH_OPTS,
+        ...(identityFile ? ["-i", identityFile] : []),
+        "-p",
+        String(port),
+        `${user}@${host}`,
+        command,
+      ],
       { stdio: "inherit" },
     );
     child.on("close", (code) => {
@@ -63,6 +78,7 @@ export async function copyFilesToVm(
   port: number,
   user: string,
   copies: FileCopy[],
+  identityFile?: string,
 ): Promise<void> {
   const dirs = new Set(
     copies.map((c) => {
@@ -73,12 +89,13 @@ export async function copyFilesToVm(
 
   if (dirs.size > 0) {
     const escapedDirs = [...dirs].map(shellEscape).join(" ");
-    await sshExec(host, port, user, `mkdir -p ${escapedDirs}`);
+    await sshExec(host, port, user, `mkdir -p ${escapedDirs}`, identityFile);
   }
 
   for (const copy of copies) {
     await scp([
       ...SSH_OPTS,
+      ...(identityFile ? ["-i", identityFile] : []),
       "-P",
       String(port),
       copy.host,
