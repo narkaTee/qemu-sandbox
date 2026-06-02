@@ -37,9 +37,45 @@ export async function fileExists(path: string): Promise<boolean> {
   );
 }
 
+export function validateGuestPath(path: string): void {
+  if (path.length === 0) {
+    throw new Error("Guest path cannot be empty");
+  }
+  if (path.includes("\0")) {
+    throw new Error("Guest path cannot contain null bytes");
+  }
+  if (/[\x01-\x1F\x7F]/.test(path)) {
+    throw new Error("Guest path cannot contain control characters");
+  }
+  if (!path.startsWith("/")) {
+    throw new Error(`Guest path must be absolute: ${path}`);
+  }
+  if (path.split("/").includes("..")) {
+    throw new Error(`Guest path cannot contain '..' segments: ${path}`);
+  }
+}
+
+export function validateHostPath(path: string): void {
+  if (path.length === 0) {
+    throw new Error("Host path cannot be empty");
+  }
+  if (path.includes("\0")) {
+    throw new Error("Host path cannot contain null bytes");
+  }
+  if (/[\x01-\x1F\x7F]/.test(path)) {
+    throw new Error("Host path cannot contain control characters");
+  }
+  if (path.startsWith("~") && path !== "~" && !path.startsWith("~/")) {
+    throw new Error(`Host path has unsupported tilde form: ${path}`);
+  }
+}
+
 export function deriveGuestPath(host: string): string {
+  validateHostPath(host);
   if (host.startsWith("~/") || host === "~") {
-    return "/home/dev" + host.slice(1);
+    const path = "/home/dev" + host.slice(1);
+    validateGuestPath(path);
+    return path;
   }
   throw new Error(
     `Mount '${host}' is a relative path and requires an explicit 'guest' field`,
@@ -52,8 +88,10 @@ export function parseMounts(raw: unknown): MountEntry[] {
     .filter((e) => e && typeof e === "object" && typeof e.host === "string")
     .map((e) => {
       const host = e.host as string;
+      validateHostPath(host);
       const guest =
         typeof e.guest === "string" ? e.guest : deriveGuestPath(host);
+      validateGuestPath(guest);
       return {
         host,
         guest,
@@ -102,16 +140,33 @@ export function mergeSettings(
   };
 }
 
+export function resolveHostPath(path: string, projectRoot: string): string {
+  validateHostPath(path);
+  if (path === "~") return homedir();
+  if (path.startsWith("~/")) return resolve(homedir(), path.slice(2));
+  return resolve(projectRoot, path);
+}
+
 export function resolveMounts(
   mounts: MountEntry[],
   projectRoot: string,
 ): MountEntry[] {
   return mounts.map((m) => ({
     ...m,
-    host: m.host.startsWith("~")
-      ? resolve(homedir(), m.host.slice(2))
-      : resolve(projectRoot, m.host),
+    host: resolveHostPath(m.host, projectRoot),
   }));
+}
+
+async function validateMountHostsExist(mounts: MountEntry[]): Promise<void> {
+  for (const mount of mounts) {
+    const s = await stat(mount.host).catch(() => null);
+    if (!s) {
+      throw new Error(`Host mount path does not exist: ${mount.host}`);
+    }
+    if (!s.isDirectory()) {
+      throw new Error(`Host mount path must be a directory: ${mount.host}`);
+    }
+  }
 }
 
 async function loadYaml(path: string): Promise<unknown> {
@@ -153,6 +208,8 @@ export async function loadProjectConfig(
     mounts.push(...agent.mounts);
     copies = agent.copies;
   }
+
+  await validateMountHostsExist(mounts);
 
   return { projectRoot, settings, customCloudInit, mounts, copies };
 }

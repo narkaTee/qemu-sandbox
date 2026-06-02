@@ -1,13 +1,16 @@
 import { describe, it, after, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { tmpdir, homedir } from "node:os";
 import {
   loadProjectConfig,
   resolveMounts,
   parseSettings,
   mergeSettings,
+  validateGuestPath,
+  validateHostPath,
+  resolveHostPath,
 } from "../src/project-config.ts";
 
 describe("parseSettings", () => {
@@ -118,11 +121,92 @@ describe("mergeSettings", () => {
   });
 });
 
+describe("validateGuestPath", () => {
+  it("accepts absolute guest paths", () => {
+    assert.doesNotThrow(() => validateGuestPath("/home/dev/workspace"));
+    assert.doesNotThrow(() => validateGuestPath("/mnt/data.with..dots"));
+  });
+
+  it("rejects empty guest paths", () => {
+    assert.throws(() => validateGuestPath(""), /cannot be empty/);
+  });
+
+  it("rejects guest paths with null bytes", () => {
+    assert.throws(() => validateGuestPath("/tmp/a\0b"), /null bytes/);
+  });
+
+  it("rejects guest paths with control characters", () => {
+    assert.throws(() => validateGuestPath("/tmp/a\nb"), /control characters/);
+    assert.throws(() => validateGuestPath("/tmp/a\tb"), /control characters/);
+    assert.throws(() => validateGuestPath("/tmp/a\rb"), /control characters/);
+    assert.throws(() => validateGuestPath("/tmp/a\x7Fb"), /control characters/);
+  });
+
+  it("rejects relative guest paths", () => {
+    assert.throws(() => validateGuestPath("tmp/data"), /must be absolute/);
+  });
+
+  it("rejects parent-directory guest path segments", () => {
+    assert.throws(() => validateGuestPath("/tmp/../etc"), /'\.\.' segments/);
+    assert.throws(() => validateGuestPath("/.."), /'\.\.' segments/);
+  });
+});
+
+describe("validateHostPath", () => {
+  it("accepts supported host paths", () => {
+    assert.doesNotThrow(() => validateHostPath("."));
+    assert.doesNotThrow(() => validateHostPath("../shared-libs"));
+    assert.doesNotThrow(() => validateHostPath("/tmp/data"));
+    assert.doesNotThrow(() => validateHostPath("~"));
+    assert.doesNotThrow(() => validateHostPath("~/.config/tool"));
+  });
+
+  it("rejects empty host paths", () => {
+    assert.throws(() => validateHostPath(""), /cannot be empty/);
+  });
+
+  it("rejects host paths with null bytes", () => {
+    assert.throws(() => validateHostPath("a\0b"), /null bytes/);
+  });
+
+  it("rejects host paths with control characters", () => {
+    assert.throws(() => validateHostPath("a\nb"), /control characters/);
+    assert.throws(() => validateHostPath("a\tb"), /control characters/);
+    assert.throws(() => validateHostPath("a\rb"), /control characters/);
+    assert.throws(() => validateHostPath("a\x7Fb"), /control characters/);
+  });
+
+  it("rejects unsupported tilde forms", () => {
+    assert.throws(() => validateHostPath("~bad/foo"), /unsupported tilde/);
+    assert.throws(() => validateHostPath("~user"), /unsupported tilde/);
+  });
+});
+
+describe("resolveHostPath", () => {
+  it("resolves relative paths against project root", () => {
+    assert.equal(resolveHostPath("data", "/project"), "/project/data");
+    assert.equal(resolveHostPath("../shared", "/project/app"), "/project/shared");
+  });
+
+  it("keeps absolute paths absolute", () => {
+    assert.equal(resolveHostPath("/tmp/data", "/project"), "/tmp/data");
+  });
+
+  it("resolves supported home paths", () => {
+    assert.equal(resolveHostPath("~", "/project"), homedir());
+    assert.equal(resolveHostPath("~/.config/tool", "/project"), join(homedir(), ".config/tool"));
+  });
+});
+
 describe("loadProjectConfig", () => {
   let dir: string;
+  const homeCleanup: string[] = [];
 
   after(async () => {
     if (dir) await rm(dir, { recursive: true });
+    await Promise.all(
+      homeCleanup.map((path) => rm(path, { recursive: true, force: true })),
+    );
   });
 
   it("returns defaults when no config dir exists", async () => {
@@ -169,6 +253,7 @@ describe("loadProjectConfig", () => {
     dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
     const configDir = join(dir, ".qemu-sandbox");
     await mkdir(configDir, { recursive: true });
+    await mkdir(join(dir, "data"));
     await writeFile(
       join(configDir, "mounts.yaml"),
       "- host: .\n  guest: /home/dev/workspace\n- host: data\n  guest: /mnt/data\n  readonly: true\n",
@@ -187,18 +272,27 @@ describe("loadProjectConfig", () => {
   it("derives guest path from ~ host paths", async () => {
     dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
     const configDir = join(dir, ".qemu-sandbox");
+    const homeMount1 = await mkdtemp(
+      join(homedir(), ".config/qemu-sandbox-test-a-"),
+    );
+    const homeMount2 = await mkdtemp(
+      join(homedir(), ".config/qemu-sandbox-test-b-"),
+    );
+    homeCleanup.push(homeMount1, homeMount2);
+    const homePath1 = `~/.config/${basename(homeMount1)}`;
+    const homePath2 = `~/.config/${basename(homeMount2)}`;
     await mkdir(configDir, { recursive: true });
     await writeFile(
       join(configDir, "mounts.yaml"),
-      "- host: ~/.config/asd\n- host: ~/.config/foobar\n",
+      `- host: ${homePath1}\n- host: ${homePath2}\n`,
     );
 
     const config = await loadProjectConfig(dir);
     assert.equal(config.mounts.length, 2);
-    assert.equal(config.mounts[0].host, join(homedir(), ".config/asd"));
-    assert.equal(config.mounts[0].guest, "/home/dev/.config/asd");
-    assert.equal(config.mounts[1].host, join(homedir(), ".config/foobar"));
-    assert.equal(config.mounts[1].guest, "/home/dev/.config/foobar");
+    assert.equal(config.mounts[0].host, homeMount1);
+    assert.equal(config.mounts[0].guest, `/home/dev/.config/${basename(homeMount1)}`);
+    assert.equal(config.mounts[1].host, homeMount2);
+    assert.equal(config.mounts[1].guest, `/home/dev/.config/${basename(homeMount2)}`);
   });
 
   it("adds workspace mount when mount-workspace is true", async () => {
@@ -220,26 +314,59 @@ describe("loadProjectConfig", () => {
   it("workspace mount is first when combined with mounts.yaml", async () => {
     dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
     const configDir = join(dir, ".qemu-sandbox");
+    const homeMount = await mkdtemp(
+      join(homedir(), ".config/qemu-sandbox-test-c-"),
+    );
+    homeCleanup.push(homeMount);
+    const homePath = `~/.config/${basename(homeMount)}`;
     await mkdir(configDir, { recursive: true });
     await writeFile(
       join(configDir, "sandbox.yaml"),
       "mount-workspace: true\n",
     );
-    await writeFile(
-      join(configDir, "mounts.yaml"),
-      "- host: ~/.config/asd\n",
-    );
+    await writeFile(join(configDir, "mounts.yaml"), `- host: ${homePath}\n`);
 
     const config = await loadProjectConfig(dir);
     assert.equal(config.mounts.length, 2);
     assert.equal(config.mounts[0].guest, "/home/dev/workspace");
-    assert.equal(config.mounts[1].guest, "/home/dev/.config/asd");
+    assert.equal(config.mounts[1].guest, `/home/dev/.config/${basename(homeMount)}`);
   });
 
   it("no workspace mount when mount-workspace is false", async () => {
     dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
     const config = await loadProjectConfig(dir);
     assert.equal(config.mounts.length, 0);
+  });
+
+  it("errors when host mount path does not exist", async () => {
+    dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
+    const configDir = join(dir, ".qemu-sandbox");
+    await mkdir(configDir, { recursive: true });
+    await writeFile(
+      join(configDir, "mounts.yaml"),
+      "- host: missing\n  guest: /mnt/missing\n",
+    );
+
+    await assert.rejects(
+      () => loadProjectConfig(dir),
+      /Host mount path does not exist/,
+    );
+  });
+
+  it("errors when host mount path is not a directory", async () => {
+    dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
+    const configDir = join(dir, ".qemu-sandbox");
+    await mkdir(configDir, { recursive: true });
+    await writeFile(join(dir, "file.txt"), "x");
+    await writeFile(
+      join(configDir, "mounts.yaml"),
+      "- host: file.txt\n  guest: /mnt/file\n",
+    );
+
+    await assert.rejects(
+      () => loadProjectConfig(dir),
+      /must be a directory/,
+    );
   });
 
   it("errors on relative path without guest", async () => {

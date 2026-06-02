@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import type { FileCopy } from "./agent-mounts.ts";
+import { shellEscape } from "./shell-escape.ts";
 
 export const SSH_OPTS = [
   "-o",
@@ -71,7 +72,8 @@ export async function copyFilesToVm(
   );
 
   if (dirs.size > 0) {
-    await sshExec(host, port, user, `mkdir -p ${[...dirs].join(" ")}`);
+    const escapedDirs = [...dirs].map(shellEscape).join(" ");
+    await sshExec(host, port, user, `mkdir -p ${escapedDirs}`);
   }
 
   for (const copy of copies) {
