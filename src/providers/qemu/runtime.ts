@@ -1,10 +1,10 @@
+import { constants } from "node:fs";
 import { spawn } from "node:child_process";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { arch, platform } from "node:os";
 import { join } from "node:path";
-import { exec } from "./exec.ts";
-import { SSH_OPTS } from "./ssh.ts";
-import type { MountEntry } from "./project-config.ts";
+import { exec } from "../../exec.ts";
+import type { MountEntry } from "../../project-config.ts";
 
 export function qemuSystemBinary(): string {
   const a = arch();
@@ -12,8 +12,6 @@ export function qemuSystemBinary(): string {
   if (a === "arm64") return "qemu-system-aarch64";
   throw new Error(`Unsupported architecture: ${a}`);
 }
-
-import { constants } from "node:fs";
 
 export async function detectAccel(): Promise<string> {
   const os = platform();
@@ -163,57 +161,5 @@ export async function launchVm(config: VmConfig): Promise<number> {
     qemu.on("error", (err) => {
       reject(new Error(`Failed to spawn QEMU: ${err.message}`));
     });
-  });
-}
-
-export interface WaitForSshOptions {
-  host: string;
-  port: number;
-  user?: string;
-  identityFile?: string;
-  timeoutSeconds?: number;
-}
-
-export function waitForSsh(opts: WaitForSshOptions): Promise<void> {
-  const { host, port, user = "dev", identityFile, timeoutSeconds = 120 } = opts;
-  const deadline = Date.now() + timeoutSeconds * 1000;
-
-  return new Promise((resolve, reject) => {
-    function attempt() {
-      if (Date.now() > deadline) {
-        reject(
-          new Error(
-            `SSH not reachable on ${host}:${port} within ${timeoutSeconds}s`,
-          ),
-        );
-        return;
-      }
-
-      const sshArgs = [
-        ...SSH_OPTS,
-        "-o",
-        "ConnectTimeout=2",
-        "-o",
-        "BatchMode=yes",
-        ...(identityFile ? ["-i", identityFile] : []),
-        "-p",
-        String(port),
-        `${user}@${host}`,
-        "true",
-      ];
-
-      const child = spawn("ssh", sshArgs, { stdio: "ignore" });
-      child.on("close", (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          setTimeout(attempt, 2000);
-        }
-      });
-      child.on("error", () => {
-        setTimeout(attempt, 2000);
-      });
-    }
-    attempt();
   });
 }

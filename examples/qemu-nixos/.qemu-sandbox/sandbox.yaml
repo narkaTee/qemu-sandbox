@@ -1,5 +1,7 @@
-backend: qemu
-image: nixos
+provider: qemu
 memory: 4096
 cpus: 4
 mount-workspace: true
+
+qemu:
+  image: nixos

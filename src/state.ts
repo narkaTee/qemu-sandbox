@@ -10,6 +10,7 @@ import {
 } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
+import type { ProviderName } from "./project-config.ts";
 
 const VMS_DIR = join(homedir(), ".cache", "qemu-sandbox", "vms");
 
@@ -29,15 +30,13 @@ export function stateDir(name: string): string {
   return join(VMS_DIR, name);
 }
 
-export type SandboxBackend = "qemu" | "gondolin";
-
 interface SandboxState {
   pid: number;
   sshPort: number;
-  backend?: SandboxBackend;
-  gondolinSessionId?: string;
-  gondolinAssetsPath?: string;
-  gondolinSshIdentityFile?: string;
+  provider: ProviderName;
+  sshHost?: string;
+  sshUser?: string;
+  sshIdentityFile?: string;
 }
 
 async function readState(name: string): Promise<SandboxState | null> {
@@ -47,11 +46,7 @@ async function readState(name: string): Promise<SandboxState | null> {
     if (typeof data.pid !== "number" || typeof data.sshPort !== "number") {
       return null;
     }
-    if (
-      data.backend !== undefined &&
-      data.backend !== "qemu" &&
-      data.backend !== "gondolin"
-    ) {
+    if (data.provider !== "qemu" && data.provider !== "gondolin") {
       return null;
     }
     return data as SandboxState;
@@ -81,16 +76,26 @@ export async function readSshPort(name: string): Promise<number | null> {
   return state?.sshPort ?? null;
 }
 
-export async function readBackend(name: string): Promise<SandboxBackend> {
+export async function readProvider(name: string): Promise<ProviderName> {
   const state = await readState(name);
-  return state?.backend ?? "qemu";
+  return state?.provider ?? "qemu";
 }
 
 export async function readSshIdentityFile(
   name: string,
 ): Promise<string | null> {
   const state = await readState(name);
-  return state?.gondolinSshIdentityFile ?? null;
+  return state?.sshIdentityFile ?? null;
+}
+
+export async function readSshHost(name: string): Promise<string> {
+  const state = await readState(name);
+  return state?.sshHost ?? "localhost";
+}
+
+export async function readSshUser(name: string): Promise<string> {
+  const state = await readState(name);
+  return state?.sshUser ?? "dev";
 }
 
 export function isProcessRunning(pid: number): boolean {
@@ -116,16 +121,14 @@ export async function removeState(name: string): Promise<void> {
   const dir = stateDir(name);
   try {
     await rm(dir, { recursive: true });
-  } catch {
-    // already gone
-  }
+  } catch {}
 }
 
 export interface SandboxInfo {
   name: string;
   pid: number | null;
   sshPort: number | null;
-  backend: SandboxBackend;
+  provider: ProviderName;
   running: boolean;
 }
 
@@ -147,9 +150,9 @@ export async function listAll(): Promise<SandboxInfo[]> {
     const state = await readState(entry).catch(() => null);
     const pid = state?.pid ?? null;
     const sshPort = state?.sshPort ?? null;
-    const backend = state?.backend ?? "qemu";
+    const provider = state?.provider ?? "qemu";
     const running = pid !== null && isProcessRunning(pid);
-    results.push({ name: entry, pid, sshPort, backend, running });
+    results.push({ name: entry, pid, sshPort, provider, running });
   }
   return results;
 }

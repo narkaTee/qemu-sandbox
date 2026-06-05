@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { detectAccel, qemuSystemBinary } from "../src/qemu.ts";
+import { detectAccel, qemuSystemBinary } from "../../../src/providers/qemu/runtime.ts";
 
 describe("qemuSystemBinary", () => {
   it("returns a qemu-system binary name", () => {

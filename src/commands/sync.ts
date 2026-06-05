@@ -1,5 +1,12 @@
 import { spawn } from "node:child_process";
-import { sandboxName, isRunning, readSshPort } from "../state.ts";
+import {
+  sandboxName,
+  isRunning,
+  readSshPort,
+  readSshHost,
+  readSshUser,
+  readSshIdentityFile,
+} from "../state.ts";
 import { SSH_OPTS } from "../ssh.ts";
 import { loadProjectConfig } from "../project-config.ts";
 import type { ParsedArgs } from "../bin/sandbox.ts";
@@ -34,12 +41,21 @@ export async function sync(args: ParsedArgs): Promise<void> {
   }
 
   const port = await readSshPort(name);
+  const host = await readSshHost(name);
+  const user = await readSshUser(name);
+  const identityFile = await readSshIdentityFile(name);
   if (!port) {
     throw new Error("Could not determine SSH port");
   }
 
-  const sshCmd = ["ssh", ...SSH_OPTS, "-p", String(port)].join(" ");
-  const remote = `dev@localhost:/home/dev/workspace/`;
+  const sshCmd = [
+    "ssh",
+    ...SSH_OPTS,
+    ...(identityFile ? ["-i", identityFile] : []),
+    "-p",
+    String(port),
+  ].join(" ");
+  const remote = `${user}@${host}:/home/dev/workspace/`;
 
   const common = ["-hzav", "--no-o", "--no-g", "--delete", "-e", sshCmd];
 

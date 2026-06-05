@@ -2,11 +2,12 @@ import { createHash } from "node:crypto";
 import { copyFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { exec } from "../exec.ts";
-import type { ImageProvider, ImageResult } from "./provider.ts";
-import type { ProjectConfig } from "../project-config.ts";
+import { exec } from "../../../exec.ts";
+import type { QemuImage, QemuImageResult } from "./types.ts";
+import type { ProjectConfig } from "../../../project-config.ts";
+import { customNixosModulePath } from "../config.ts";
 
-const FLAKE_DIR = resolve(import.meta.dirname!, "../../sandbox-nixos");
+const FLAKE_DIR = resolve(import.meta.dirname!, "../../../../sandbox-nixos");
 const BAKED_DIR = join(homedir(), ".cache", "qemu-sandbox", "images", "nixos");
 
 async function fileExists(path: string): Promise<boolean> {
@@ -79,12 +80,8 @@ async function buildWithCustomModule(
   return join(outDir, "disk.qcow2");
 }
 
-async function bakeNixos(config: ProjectConfig): Promise<ImageResult> {
-  const customModulePath = join(
-    config.projectRoot,
-    ".qemu-sandbox",
-    "nixos.nix",
-  );
+async function bakeNixos(config: ProjectConfig): Promise<QemuImageResult> {
+  const customModulePath = customNixosModulePath(config);
   const hasCustom = await fileExists(customModulePath);
 
   const customContent = hasCustom
@@ -113,8 +110,7 @@ async function bakeNixos(config: ProjectConfig): Promise<ImageResult> {
   return { diskImage: bakedPath, useFwCfg: true };
 }
 
-export const nixosProvider: ImageProvider = {
+export const nixosImage: QemuImage = {
   name: "nixos",
-  ensureBaseImage: buildBaseImage,
   bake: bakeNixos,
 };

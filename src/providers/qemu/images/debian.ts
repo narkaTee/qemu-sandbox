@@ -11,15 +11,17 @@ import {
 import { homedir, arch } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
-import { sha512 } from "../sha512.ts";
-import { download } from "../download.ts";
-import { createSeedIso } from "../cloud-init.ts";
-import { launchVm, waitForSsh } from "../qemu.ts";
-import { allocateSshPort } from "../ssh-port.ts";
-import { exec } from "../exec.ts";
-import { SSH_OPTS } from "../ssh.ts";
-import type { ImageProvider, ImageResult } from "./provider.ts";
-import type { ProjectConfig } from "../project-config.ts";
+import { sha512 } from "../../../sha512.ts";
+import { download } from "../../../download.ts";
+import { createSeedIso } from "../../../cloud-init.ts";
+import { allocateSshPort } from "../../../ssh-port.ts";
+import { exec } from "../../../exec.ts";
+import { generateSshKeyPair } from "../../../ssh-keys.ts";
+import { SSH_OPTS, waitForSsh } from "../../../ssh.ts";
+import type { QemuImage, QemuImageResult } from "./types.ts";
+import type { ProjectConfig } from "../../../project-config.ts";
+import { loadCustomCloudInit } from "../config.ts";
+import { launchVm } from "../runtime.ts";
 
 const BASE_URL = "https://cloud.debian.org/images/cloud/trixie/latest";
 const CACHE_DIR = join(homedir(), ".cache", "qemu-sandbox", "images", "debian");
@@ -116,9 +118,8 @@ async function generateTempKeyPair(
   dir: string,
 ): Promise<{ keyPath: string; pubKey: string }> {
   const keyPath = join(dir, "bake_key");
-  await exec("ssh-keygen", ["-t", "ed25519", "-f", keyPath, "-N", "", "-q"]);
-  const pubKey = (await readFile(`${keyPath}.pub`, "utf-8")).trim();
-  return { keyPath, pubKey };
+  const keyPair = await generateSshKeyPair(keyPath);
+  return { keyPath: keyPair.privateKeyPath, pubKey: keyPair.publicKey };
 }
 
 function bakeSshArgs(keyPath: string, port: number, host: string): string[] {
@@ -223,9 +224,10 @@ function waitForPidExit(pid: number, timeoutMs: number): Promise<void> {
   });
 }
 
-async function bakeDebian(config: ProjectConfig): Promise<ImageResult> {
+async function bakeDebian(config: ProjectConfig): Promise<QemuImageResult> {
   const baseImage = await ensureDebianImage();
-  const hash = bakeHash(baseImage, config.customCloudInit);
+  const customCloudInit = await loadCustomCloudInit(config);
+  const hash = bakeHash(baseImage, customCloudInit);
   const bakedPath = join(BAKED_DIR, `baked-${hash}.qcow2`);
 
   if (await fileExists(bakedPath)) {
@@ -237,6 +239,7 @@ async function bakeDebian(config: ProjectConfig): Promise<ImageResult> {
   await mkdir(BAKED_DIR, { recursive: true });
 
   const tmpDir = `${bakedPath}.tmp.d`;
+  await rm(tmpDir, { recursive: true, force: true });
   await mkdir(tmpDir, { recursive: true });
 
   const seedIso = join(tmpDir, "seed.iso");
@@ -246,7 +249,7 @@ async function bakeDebian(config: ProjectConfig): Promise<ImageResult> {
   await createSeedIso(seedIso, {
     hostname: "bake-tmp",
     sshAuthorizedKeys: [pubKey],
-    customCloudInit: config.customCloudInit,
+    customCloudInit,
   });
 
   const pid = await launchVm({
@@ -299,8 +302,7 @@ async function bakeDebian(config: ProjectConfig): Promise<ImageResult> {
   return { diskImage: bakedPath, useFwCfg: false };
 }
 
-export const debianProvider: ImageProvider = {
+export const debianImage: QemuImage = {
   name: "debian-13",
-  ensureBaseImage: ensureDebianImage,
   bake: bakeDebian,
 };

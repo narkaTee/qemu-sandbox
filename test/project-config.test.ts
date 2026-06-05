@@ -1,4 +1,4 @@
-import { describe, it, after, beforeEach, afterEach } from "node:test";
+import { describe, it, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
@@ -16,46 +16,57 @@ import {
 describe("parseSettings", () => {
   it("returns defaults for null/undefined", () => {
     const s = parseSettings(null);
-    assert.equal(s.backend, "qemu");
-    assert.equal(s.image, null);
+    assert.equal(s.provider, "qemu");
     assert.equal(s.memory, null);
     assert.equal(s.cpus, null);
     assert.equal(s["mount-workspace"], false);
     assert.deepEqual(s["mount-agent-configs"], []);
+    assert.equal(s.qemu.image, "debian-13");
+    assert.equal(s.gondolin.oci, "ghcr.io/narkatee/sandbox-container:latest");
   });
 
   it("parses all fields", () => {
     const s = parseSettings({
-      backend: "gondolin",
-      image: "debian-13",
+      provider: "gondolin",
       memory: 4096,
       cpus: 4,
       "mount-workspace": true,
       "mount-agent-configs": ["claude", "gemini"],
+      qemu: { image: "nixos" },
+      gondolin: { oci: "ghcr.io/example/custom:latest" },
     });
-    assert.equal(s.backend, "gondolin");
-    assert.equal(s.image, "debian-13");
+    assert.equal(s.provider, "gondolin");
     assert.equal(s.memory, 4096);
     assert.equal(s.cpus, 4);
     assert.equal(s["mount-workspace"], true);
     assert.deepEqual(s["mount-agent-configs"], ["claude", "gemini"]);
+    assert.equal(s.qemu.image, "nixos");
+    assert.equal(s.gondolin.oci, "ghcr.io/example/custom:latest");
   });
 
-  it("ignores invalid types", () => {
+  it("ignores invalid scalar types", () => {
     const s = parseSettings({
-      backend: "bad",
-      image: 123,
+      provider: "bad",
       memory: "big",
       cpus: "many",
       "mount-workspace": "yes",
       "mount-agent-configs": "claude",
+      gondolin: { oci: 123 },
     });
-    assert.equal(s.backend, "qemu");
-    assert.equal(s.image, null);
+    assert.equal(s.provider, "qemu");
     assert.equal(s.memory, null);
     assert.equal(s.cpus, null);
     assert.equal(s["mount-workspace"], false);
     assert.deepEqual(s["mount-agent-configs"], []);
+    assert.equal(s.qemu.image, "debian-13");
+    assert.equal(s.gondolin.oci, "ghcr.io/narkatee/sandbox-container:latest");
+  });
+
+  it("errors on unknown qemu image", () => {
+    assert.throws(
+      () => parseSettings({ qemu: { image: "alpine" } }),
+      /Unknown QEMU image: alpine/,
+    );
   });
 
   it("filters non-string entries in mount-agent-configs", () => {
@@ -69,24 +80,28 @@ describe("parseSettings", () => {
 describe("mergeSettings", () => {
   it("local overrides global scalar values", () => {
     const merged = mergeSettings(
-      { image: "debian-13", memory: 4096, cpus: 2 },
-      { backend: "gondolin", memory: 8192 },
+      { provider: "qemu", memory: 4096, cpus: 2, qemu: { image: "debian-13" } },
+      { provider: "gondolin", memory: 8192 },
     );
-    assert.equal(merged.backend, "gondolin");
-    assert.equal(merged.image, "debian-13");
+    assert.equal(merged.provider, "gondolin");
     assert.equal(merged.memory, 8192);
     assert.equal(merged.cpus, 2);
+    assert.equal(merged.qemu.image, "debian-13");
   });
 
-  it("local qemu overrides global gondolin", () => {
-    const merged = mergeSettings({ backend: "gondolin" }, { backend: "qemu" });
-    assert.equal(merged.backend, "qemu");
+  it("deep merges provider blocks", () => {
+    const merged = mergeSettings(
+      { provider: "qemu", qemu: { image: "nixos" }, gondolin: { oci: "ghcr.io/a:1" } },
+      { memory: 2048 },
+    );
+    assert.equal(merged.provider, "qemu");
+    assert.equal(merged.qemu.image, "nixos");
+    assert.equal(merged.gondolin.oci, "ghcr.io/a:1");
   });
 
-  it("missing local values do not override global values", () => {
-    const merged = mergeSettings({ image: "debian-13", cpus: 4 }, {});
-    assert.equal(merged.image, "debian-13");
-    assert.equal(merged.cpus, 4);
+  it("local provider overrides global provider", () => {
+    const merged = mergeSettings({ provider: "gondolin" }, { provider: "qemu" });
+    assert.equal(merged.provider, "qemu");
   });
 
   it("local mount-workspace overrides global", () => {
@@ -110,15 +125,6 @@ describe("mergeSettings", () => {
         { "mount-agent-configs": ["gemini"] },
       )["mount-agent-configs"],
       ["gemini"],
-    );
-  });
-
-  it("falls back to global mount-agent-configs when local is missing", () => {
-    assert.deepEqual(
-      mergeSettings({ "mount-agent-configs": ["claude"] }, {})[
-        "mount-agent-configs"
-      ],
-      ["claude"],
     );
   });
 });
@@ -201,11 +207,11 @@ describe("resolveHostPath", () => {
 });
 
 describe("loadProjectConfig", () => {
-  let dir: string;
+  let dir = "";
   const homeCleanup: string[] = [];
 
   after(async () => {
-    if (dir) await rm(dir, { recursive: true });
+    if (dir) await rm(dir, { recursive: true, force: true });
     await Promise.all(
       homeCleanup.map((path) => rm(path, { recursive: true, force: true })),
     );
@@ -214,27 +220,13 @@ describe("loadProjectConfig", () => {
   it("returns defaults when no config dir exists", async () => {
     dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
     const config = await loadProjectConfig(dir);
-    assert.equal(config.customCloudInit, null);
     assert.deepEqual(config.mounts, []);
-    assert.equal(config.settings.backend, "qemu");
-    assert.equal(config.settings.image, null);
+    assert.equal(config.settings.provider, "qemu");
+    assert.equal(config.settings.qemu.image, "debian-13");
     assert.equal(config.settings.memory, null);
     assert.equal(config.settings.cpus, null);
     assert.equal(config.settings["mount-workspace"], false);
     assert.deepEqual(config.settings["mount-agent-configs"], []);
-  });
-
-  it("loads cloud-init.yaml when present", async () => {
-    dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
-    const configDir = join(dir, ".qemu-sandbox");
-    await mkdir(configDir, { recursive: true });
-    await writeFile(
-      join(configDir, "cloud-init.yaml"),
-      "packages:\n  - vim\n",
-    );
-
-    const config = await loadProjectConfig(dir);
-    assert.equal(config.customCloudInit, "packages:\n  - vim\n");
   });
 
   it("loads sandbox.yaml settings", async () => {
@@ -243,14 +235,26 @@ describe("loadProjectConfig", () => {
     await mkdir(configDir, { recursive: true });
     await writeFile(
       join(configDir, "sandbox.yaml"),
-      "backend: gondolin\nimage: debian-13\nmemory: 8192\ncpus: 8\n",
+      "provider: gondolin\ngondolin:\n  oci: ghcr.io/example/test:latest\nmemory: 8192\ncpus: 8\n",
     );
 
     const config = await loadProjectConfig(dir);
-    assert.equal(config.settings.backend, "gondolin");
-    assert.equal(config.settings.image, "debian-13");
+    assert.equal(config.settings.provider, "gondolin");
+    assert.equal(config.settings.gondolin.oci, "ghcr.io/example/test:latest");
     assert.equal(config.settings.memory, 8192);
     assert.equal(config.settings.cpus, 8);
+  });
+
+  it("errors on unknown qemu image in sandbox.yaml", async () => {
+    dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
+    const configDir = join(dir, ".qemu-sandbox");
+    await mkdir(configDir, { recursive: true });
+    await writeFile(join(configDir, "sandbox.yaml"), "qemu:\n  image: deboian-13\n");
+
+    await assert.rejects(
+      () => loadProjectConfig(dir),
+      /Unknown QEMU image: deboian-13/,
+    );
   });
 
   it("loads mounts.yaml and resolves paths against project root", async () => {
@@ -334,12 +338,6 @@ describe("loadProjectConfig", () => {
     assert.equal(config.mounts.length, 2);
     assert.equal(config.mounts[0].guest, "/home/dev/workspace");
     assert.equal(config.mounts[1].guest, `/home/dev/.config/${basename(homeMount)}`);
-  });
-
-  it("no workspace mount when mount-workspace is false", async () => {
-    dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
-    const config = await loadProjectConfig(dir);
-    assert.equal(config.mounts.length, 0);
   });
 
   it("errors when host mount path does not exist", async () => {

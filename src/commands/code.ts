@@ -1,5 +1,11 @@
 import { execFile } from "node:child_process";
-import { sandboxName, isRunning, readSshPort } from "../state.ts";
+import {
+  sandboxName,
+  isRunning,
+  readSshPort,
+  readSshHost,
+  readSshUser,
+} from "../state.ts";
 import { openUrl } from "../open-url.ts";
 import type { ParsedArgs } from "../bin/sandbox.ts";
 
@@ -16,11 +22,13 @@ export async function code(_args: ParsedArgs): Promise<void> {
   }
 
   const port = await readSshPort(name);
+  const host = await readSshHost(name);
+  const user = await readSshUser(name);
   if (!port) {
     throw new Error("Could not determine SSH port");
   }
 
-  const remote = `ssh-remote+dev@localhost:${port}/home/dev/workspace`;
+  const remote = `ssh-remote+${user}@${host}:${port}/home/dev/workspace`;
   console.log(`Opening Visual Studio Code on ${name}...`);
 
   if (await hasCommand("code")) {

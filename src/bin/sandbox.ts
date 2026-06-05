@@ -88,12 +88,12 @@ function printUsage(): void {
   console.log(`Usage: sandbox [flags] [command]
 
 Commands:
-  (none)          Start/enter sandbox (auto-detects or defaults to container)
+  (none)          Start/enter sandbox
   code            Open in VS Code Remote SSH
   idea            Open in IntelliJ IDEA via JetBrains Gateway
   info            Show SSH connection details
   list            List all running sandboxes
-  bake            Pre-bake custom image from .qemu-sandbox/cloud-init.yaml
+  bake            Prepare provider artifacts
   stop [-a]       Stop sandbox (-a for all)
   sync <dir>      Sync workspace: up, down
 `);
@@ -136,15 +136,26 @@ async function main(): Promise<void> {
   }
 }
 
+import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const isDirectRun =
-  process.argv[1] &&
-  resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (isDirectRun) {
+function isDirectRun(): boolean {
+  const invokedPath = process.argv[1];
+  if (!invokedPath) return false;
+
+  const modulePath = fileURLToPath(import.meta.url);
+
+  try {
+    return realpathSync(invokedPath) === realpathSync(modulePath);
+  } catch {
+    return resolve(invokedPath) === resolve(modulePath);
+  }
+}
+
+if (isDirectRun()) {
   main().catch((err) => {
-    console.error(`sandbox: ${err.message}`);
+    console.error(`sandbox: ${err.message}`, err);
     process.exit(1);
   });
 }

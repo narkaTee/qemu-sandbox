@@ -1,8 +1,12 @@
 import { loadProjectConfig } from "../project-config.ts";
-import { ensureBakedImage } from "../bake.ts";
+import { resolveProvider } from "../providers/registry.ts";
 
 export async function bake(): Promise<void> {
   const config = await loadProjectConfig();
-  const image = await ensureBakedImage(config);
-  console.log(`Baked image: ${image.diskImage}`);
+  const provider = resolveProvider(config.settings.provider);
+  if (!provider.bake) {
+    throw new Error(`Provider does not support bake: ${provider.name}`);
+  }
+  await provider.bake(config);
+  console.log(`Prepared provider: ${provider.name}`);
 }

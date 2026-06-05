@@ -7,6 +7,7 @@ import type { FileCopy } from "./agent-mounts.ts";
 
 const LOCAL_CONFIG_DIR = ".qemu-sandbox";
 const GLOBAL_CONFIG_DIR = join(homedir(), ".config", "qemu-sandbox");
+const DEFAULT_GONDOLIN_OCI = "ghcr.io/narkatee/sandbox-container:latest";
 
 export interface MountEntry {
   host: string;
@@ -14,30 +15,41 @@ export interface MountEntry {
   readonly: boolean;
 }
 
-export type SandboxBackend = "qemu" | "gondolin";
+export type ProviderName = "qemu" | "gondolin";
+export type QemuImageName = "debian-13" | "nixos";
+
+export interface QemuSettings {
+  image: QemuImageName;
+}
+
+export interface GondolinSettings {
+  oci: string;
+}
 
 export interface SandboxSettings {
-  backend: SandboxBackend;
-  image: string | null;
+  provider: ProviderName;
   memory: number | null;
   cpus: number | null;
   "mount-workspace": boolean;
   "mount-agent-configs": string[];
+  qemu: QemuSettings;
+  gondolin: GondolinSettings;
 }
 
 interface ParsedSandboxSettings {
-  backend?: SandboxBackend;
-  image?: string;
+  provider?: ProviderName;
   memory?: number;
   cpus?: number;
   "mount-workspace"?: boolean;
   "mount-agent-configs"?: string[];
+  qemu?: Partial<QemuSettings>;
+  gondolin?: Partial<GondolinSettings>;
 }
 
 export interface ProjectConfig {
   projectRoot: string;
+  localConfigDir: string;
   settings: SandboxSettings;
-  customCloudInit: string | null;
   mounts: MountEntry[];
   copies: FileCopy[];
 }
@@ -113,27 +125,61 @@ export function parseMounts(raw: unknown): MountEntry[] {
 }
 
 const DEFAULT_SETTINGS: SandboxSettings = {
-  backend: "qemu",
-  image: null,
+  provider: "qemu",
   memory: null,
   cpus: null,
   "mount-workspace": false,
   "mount-agent-configs": [],
+  qemu: {
+    image: "debian-13",
+  },
+  gondolin: {
+    oci: DEFAULT_GONDOLIN_OCI,
+  },
 };
 
-function parseBackend(value: unknown): SandboxBackend | undefined {
+function parseProvider(value: unknown): ProviderName | undefined {
   if (value === "qemu" || value === "gondolin") return value;
   return undefined;
 }
 
+function parseQemuImage(value: unknown): QemuImageName | undefined {
+  if (value === "debian-13" || value === "nixos") return value;
+  return undefined;
+}
+
+function validateKnownSettings(raw: unknown): void {
+  if (!raw || typeof raw !== "object") return;
+  const obj = raw as Record<string, unknown>;
+  const qemu =
+    obj.qemu && typeof obj.qemu === "object"
+      ? (obj.qemu as Record<string, unknown>)
+      : null;
+
+  if (qemu && "image" in qemu && parseQemuImage(qemu.image) === undefined) {
+    throw new Error(
+      `Unknown QEMU image: ${String(qemu.image)} (available: debian-13, nixos)`,
+    );
+  }
+}
+
 function parseOptionalSettings(raw: unknown): ParsedSandboxSettings {
+  validateKnownSettings(raw);
   if (!raw || typeof raw !== "object") return {};
   const obj = raw as Record<string, unknown>;
+  const qemu =
+    obj.qemu && typeof obj.qemu === "object"
+      ? (obj.qemu as Record<string, unknown>)
+      : null;
+  const gondolin =
+    obj.gondolin && typeof obj.gondolin === "object"
+      ? (obj.gondolin as Record<string, unknown>)
+      : null;
+
   return {
-    ...(parseBackend(obj.backend)
-      ? { backend: parseBackend(obj.backend) }
+    ...(parseProvider(obj.provider)
+      ? { provider: parseProvider(obj.provider) }
       : {}),
-    ...(typeof obj.image === "string" ? { image: obj.image } : {}),
     ...(typeof obj.memory === "number" ? { memory: obj.memory } : {}),
     ...(typeof obj.cpus === "number" ? { cpus: obj.cpus } : {}),
     ...(typeof obj["mount-workspace"] === "boolean"
@@ -146,6 +192,12 @@ function parseOptionalSettings(raw: unknown): ParsedSandboxSettings {
           ),
         }
       : {}),
+    ...(qemu && parseQemuImage(qemu.image)
+      ? { qemu: { image: parseQemuImage(qemu.image)! } }
+      : {}),
+    ...(gondolin && typeof gondolin.oci === "string"
+      ? { gondolin: { oci: gondolin.oci } }
+      : {}),
   };
 }
 
@@ -153,8 +205,7 @@ function applySettingsDefaults(
   settings: ParsedSandboxSettings,
 ): SandboxSettings {
   return {
-    backend: settings.backend ?? DEFAULT_SETTINGS.backend,
-    image: settings.image ?? DEFAULT_SETTINGS.image,
+    provider: settings.provider ?? DEFAULT_SETTINGS.provider,
     memory: settings.memory ?? DEFAULT_SETTINGS.memory,
     cpus: settings.cpus ?? DEFAULT_SETTINGS.cpus,
     "mount-workspace":
@@ -162,6 +213,12 @@ function applySettingsDefaults(
     "mount-agent-configs":
       settings["mount-agent-configs"] ??
       DEFAULT_SETTINGS["mount-agent-configs"],
+    qemu: {
+      image: settings.qemu?.image ?? DEFAULT_SETTINGS.qemu.image,
+    },
+    gondolin: {
+      oci: settings.gondolin?.oci ?? DEFAULT_SETTINGS.gondolin.oci,
+    },
   };
 }
 
@@ -175,7 +232,18 @@ export function mergeSettings(
 ): SandboxSettings {
   const globalSettings = parseOptionalSettings(global);
   const localSettings = parseOptionalSettings(local);
-  return applySettingsDefaults({ ...globalSettings, ...localSettings });
+  return applySettingsDefaults({
+    ...globalSettings,
+    ...localSettings,
+    qemu: {
+      ...globalSettings.qemu,
+      ...localSettings.qemu,
+    },
+    gondolin: {
+      ...globalSettings.gondolin,
+      ...localSettings.gondolin,
+    },
+  });
 }
 
 export function resolveHostPath(path: string, projectRoot: string): string {
@@ -215,17 +283,13 @@ async function loadYaml(path: string): Promise<unknown> {
 export async function loadProjectConfig(
   projectRoot: string = process.cwd(),
 ): Promise<ProjectConfig> {
-  const localDir = join(projectRoot, LOCAL_CONFIG_DIR);
+  const localConfigDir = join(projectRoot, LOCAL_CONFIG_DIR);
 
   const globalRaw = await loadYaml(join(GLOBAL_CONFIG_DIR, "sandbox.yaml"));
-  const localRaw = await loadYaml(join(localDir, "sandbox.yaml"));
+  const localRaw = await loadYaml(join(localConfigDir, "sandbox.yaml"));
   const settings = mergeSettings(globalRaw, localRaw);
 
-  const customCloudInit = (await fileExists(join(localDir, "cloud-init.yaml")))
-    ? await readFile(join(localDir, "cloud-init.yaml"), "utf-8")
-    : null;
-
-  const mountsRaw = await loadYaml(join(localDir, "mounts.yaml"));
+  const mountsRaw = await loadYaml(join(localConfigDir, "mounts.yaml"));
   const mounts = resolveMounts(parseMounts(mountsRaw), projectRoot);
 
   if (settings["mount-workspace"]) {
@@ -245,5 +309,5 @@ export async function loadProjectConfig(
 
   await validateMountHostsExist(mounts);
 
-  return { projectRoot, settings, customCloudInit, mounts, copies };
+  return { projectRoot, localConfigDir, settings, mounts, copies };
 }

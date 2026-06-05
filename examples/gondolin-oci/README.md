@@ -1,6 +1,6 @@
 # Gondolin OCI example
 
-Uses the Gondolin backend. The guest assets are built from:
+Uses the Gondolin provider. The guest assets are built from:
 
 ```text
 ghcr.io/narkatee/sandbox-container:latest

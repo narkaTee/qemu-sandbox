@@ -1,5 +1,4 @@
-backend: qemu
-image: debian-13
+provider: qemu
 memory: 4096
 cpus: 4
 mount-workspace: true
@@ -8,3 +7,6 @@ mount-agent-configs:
   - gemini
   - opencode
   - pi
+
+qemu:
+  image: debian-13

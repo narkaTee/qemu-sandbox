@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { bakeHash } from "../../src/images/debian.ts";
+import { bakeHash } from "../../../../src/providers/qemu/images/debian.ts";
 
 describe("bakeHash", () => {
   it("produces consistent hash for same inputs", () => {

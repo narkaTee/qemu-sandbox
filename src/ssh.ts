@@ -11,6 +11,58 @@ export const SSH_OPTS = [
   "LogLevel=ERROR",
 ];
 
+export interface WaitForSshOptions {
+  host: string;
+  port: number;
+  user?: string;
+  identityFile?: string;
+  timeoutSeconds?: number;
+}
+
+export function waitForSsh(opts: WaitForSshOptions): Promise<void> {
+  const { host, port, user = "dev", identityFile, timeoutSeconds = 120 } = opts;
+  const deadline = Date.now() + timeoutSeconds * 1000;
+
+  return new Promise((resolve, reject) => {
+    function attempt() {
+      if (Date.now() > deadline) {
+        reject(
+          new Error(
+            `SSH not reachable on ${host}:${port} within ${timeoutSeconds}s`,
+          ),
+        );
+        return;
+      }
+
+      const sshArgs = [
+        ...SSH_OPTS,
+        "-o",
+        "ConnectTimeout=2",
+        "-o",
+        "BatchMode=yes",
+        ...(identityFile ? ["-i", identityFile] : []),
+        "-p",
+        String(port),
+        `${user}@${host}`,
+        "true",
+      ];
+
+      const child = spawn("ssh", sshArgs, { stdio: "ignore" });
+      child.on("close", (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          setTimeout(attempt, 2000);
+        }
+      });
+      child.on("error", () => {
+        setTimeout(attempt, 2000);
+      });
+    }
+    attempt();
+  });
+}
+
 export function enterSsh(
   host: string,
   port: number,

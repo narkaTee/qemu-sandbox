@@ -6,7 +6,7 @@ QEMU-based development sandboxes. Spins up a Linux VM from your project director
 
 - **QEMU** (`qemu-system-x86_64` or `qemu-system-aarch64`)
 - **ISO tool** (Linux only): `genisoimage`, `mkisofs`, or `xorriso`
-- **Docker or Podman** for the `gondolin` backend OCI image build
+- **Docker or Podman** for the `gondolin` provider OCI image build
 - **rsync** (for `sync` command)
 - **Node.js** ≥ 23
 
@@ -32,8 +32,8 @@ Run `qemu-sandbox` in a project directory to start a VM and enter it via SSH. Ea
 | `code`       | Open in VS Code via Remote SSH           |
 | `idea`       | Open in IntelliJ IDEA via Gateway        |
 | `info`       | Show SSH connection details              |
-| `list`       | List all running sandboxes               |
-| `bake`       | Pre-bake image with cloud-init config    |
+| `list`/`ls`  | List all running sandboxes               |
+| `bake`       | Prepare provider artifacts               |
 | `stop`       | Stop sandbox for current directory       |
 | `stop -a`    | Stop all running sandboxes               |
 | `sync up`    | Upload current directory to sandbox      |
@@ -48,9 +48,12 @@ Settings can be defined globally in `~/.config/qemu-sandbox/sandbox.yaml` and pe
 Create `~/.config/qemu-sandbox/sandbox.yaml` for defaults that apply to all sandboxes:
 
 ```yaml
+provider: qemu
 memory: 8000
 cpus: 4
-mount-workspace: true
+
+qemu:
+  image: debian-13
 ```
 
 ### Project Configuration
@@ -59,34 +62,42 @@ Place configuration files in a `.qemu-sandbox/` directory at the project root. S
 
 ### `.qemu-sandbox/sandbox.yaml`
 
-VM settings:
+Common settings plus provider-specific settings:
 
 ```yaml
-backend: qemu
-cpus: 4
-memory: 8000
-image: debian-13
 mount-workspace: true
+
+qemu:
+  image: debian-13
 ```
 
-| Field              | Description                          | Default     |
-|--------------------|--------------------------------------|-------------|
-| `backend`          | VM backend: `qemu` or `gondolin`     | `qemu`      |
-| `cpus`             | Number of virtual CPUs               | auto        |
-| `memory`           | Memory in MB                         | auto        |
-| `image`            | Base image name for QEMU backend     | `debian-13` |
-| `mount-workspace`      | Mount project directory into VM      | `false`     |
-| `mount-agent-configs`  | List of agent configs to mount       | `[]`        |
+```yaml
+provider: gondolin
+mount-workspace: true
+
+gondolin:
+  oci: ghcr.io/narkatee/sandbox-container:latest
+```
+
+| Field                  | Description                             | Default                                   |
+|------------------------|-----------------------------------------|-------------------------------------------|
+| `provider`             | Sandbox provider: `qemu` or `gondolin`  | `qemu`                                    |
+| `cpus`                 | Number of virtual CPUs                  | auto                                      |
+| `memory`               | Memory in MB                            | auto                                      |
+| `mount-workspace`      | Mount project directory into VM         | `false`                                   |
+| `mount-agent-configs`  | List of agent configs to mount          | `[]`                                      |
+| `qemu.image`           | Base image name for QEMU                | `debian-13`                               |
+| `gondolin.oci`         | OCI image for Gondolin assets           | `ghcr.io/narkatee/sandbox-container:latest` |
 
 Available QEMU images: `debian-13`, `nixos`.
 
-The `gondolin` backend builds Gondolin guest assets from OCI image `ghcr.io/narkatee/sandbox-container:latest` and exposes SSH for existing editor workflows.
+The `gondolin` provider builds guest assets from the configured OCI image and exposes SSH.
 
-> **⚠️ mount-workspace weakens the sandbox.** When enabled, the VM has direct read/write access to your project directory on the host via a virtio-9p mount. Anything running inside the VM can read, modify, or create executable files on your host disk. The `sync` command is disabled when this is active since files are already shared.
+> **⚠️ mount-workspace weakens the sandbox.** When enabled, the VM has direct read/write access to your project directory on the host via a shared mount. Anything running inside the VM can read, modify, or create executable files on your host disk. The `sync` command is disabled when this is active since files are already shared.
 
 ### `.qemu-sandbox/cloud-init.yaml`
 
-Standard [cloud-init](https://cloud-init.io/) configuration that is merged into the base cloud-init on boot. Use this to install packages, run setup scripts, add files, etc.
+QEMU-only. Standard [cloud-init](https://cloud-init.io/) configuration that is merged into the base cloud-init on boot. Use this to install packages, run setup scripts, add files, etc.
 
 ```yaml
 packages:
@@ -114,7 +125,7 @@ The custom config is merged with the following rules:
 
 ### `.qemu-sandbox/mounts.yaml`
 
-Additional host directories to mount into the VM via virtio-9p:
+Additional host directories to mount into the VM:
 
 ```yaml
 - host: ~/.config/asd
@@ -148,19 +159,23 @@ Supported agents:
 | `opencode`| `~/.config/opencode`           | `/home/dev/.config/opencode`        |
 | `pi`      | `~/.pi`                        | `/home/dev/.pi`                     |
 
-Directories are mounted via virtio-9p. Single files (like `~/.claude.json`) are copied into the VM via scp after boot. Only paths that exist on the host are processed. Unknown agent names cause an error.
+Directories are mounted. Single files like `~/.claude.json` are copied into the VM after boot. Only paths that exist on the host are processed. Unknown agent names cause an error.
 
 > **⚠️ This gives the VM read/write access to your agent credentials and configuration.**
 
 ## Baking
 
-Running `qemu-sandbox bake` creates a snapshot image with all provisioning already applied. Subsequent `qemu-sandbox` starts use the baked image, skipping the provisioning phase. The baked image is cached and rebuilt automatically when configuration changes.
+Running `qemu-sandbox bake` prepares artifacts for the selected provider.
 
-### Debian / Cloud Images
+### QEMU
+
+For QEMU, `bake` creates or reuses a prepared image.
+
+#### Debian / Cloud Images
 
 Customization via `cloud-init.yaml`. The bake process boots the VM, runs cloud-init, and snapshots the result.
 
-### NixOS
+#### NixOS
 
 The NixOS image is built with `nix build`. Customization is done via a NixOS module at `.qemu-sandbox/nixos.nix`:
 
@@ -177,7 +192,7 @@ The NixOS image is built with `nix build`. Customization is done via a NixOS mod
 }
 ```
 
-This is a standard NixOS module — you have full access to the NixOS option system. You can add packages, enable services, configure the kernel, set up users, etc.
+This is a standard NixOS module — you have full access to the NixOS option system.
 
 The baked image is cached by the hash of `nixos.nix`. Changing the file triggers a rebuild on the next `qemu-sandbox bake` or `qemu-sandbox start`.
 
@@ -186,3 +201,7 @@ The baked image is cached by the hash of `nixos.nix`. Changing the file triggers
 > ```
 > experimental-features = nix-command flakes
 > ```
+
+### Gondolin
+
+For Gondolin, `bake` builds or reuses the OCI-derived guest assets.

@@ -1,6 +1,6 @@
 # QEMU NixOS example
 
-Uses the QEMU backend with the NixOS image.
+Uses the QEMU provider with the NixOS image.
 
 ```sh
 qemu-sandbox

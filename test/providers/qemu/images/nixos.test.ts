@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { nixBakeHash } from "../../src/images/nixos.ts";
+import { nixBakeHash } from "../../../../src/providers/qemu/images/nixos.ts";
 
 describe("nixBakeHash", () => {
   it("produces consistent hash for same module", () => {

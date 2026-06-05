@@ -1,6 +1,6 @@
 # QEMU Debian example
 
-Uses the default QEMU backend with the Debian 13 cloud image.
+Uses the QEMU provider with the Debian 13 cloud image.
 
 ```sh
 qemu-sandbox

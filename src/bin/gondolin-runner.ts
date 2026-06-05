@@ -2,9 +2,9 @@
 
 import { dirname } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
-import { createGondolinVm } from "../gondolin.ts";
+import { createGondolinVm } from "../providers/gondolin/runtime.ts";
 import { loadProjectConfig } from "../project-config.ts";
-import { waitForSsh } from "../qemu.ts";
+import { waitForSsh } from "../ssh.ts";
 import { writeState } from "../state.ts";
 
 interface RunnerConfig {
@@ -55,9 +55,10 @@ async function main(): Promise<void> {
     await writeState(runner.name, {
       pid,
       sshPort: ssh.port,
-      backend: "gondolin",
-      gondolinSessionId: vm.id,
-      gondolinSshIdentityFile: ssh.identityFile,
+      provider: "gondolin",
+      sshHost: ssh.host,
+      sshUser: ssh.user,
+      sshIdentityFile: ssh.identityFile,
     });
     await writeFile(
       runner.stateReadyPath,

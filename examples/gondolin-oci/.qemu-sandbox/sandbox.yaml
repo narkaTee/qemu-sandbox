@@ -1,4 +1,7 @@
-backend: gondolin
+provider: gondolin
 memory: 4096
 cpus: 4
 mount-workspace: true
+
+gondolin:
+  oci: ghcr.io/narkatee/sandbox-container:latest
