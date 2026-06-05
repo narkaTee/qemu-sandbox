@@ -1,6 +1,6 @@
 provider: gondolin
-memory: 4096
-cpus: 4
+memory: 2048
+cpus: 2
 mount-workspace: true
 
 gondolin:
