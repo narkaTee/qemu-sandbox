@@ -1,19 +1,19 @@
+import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
-import { homedir, arch } from "node:os";
+import { arch, homedir } from "node:os";
 import { join } from "node:path";
-import { spawn } from "node:child_process";
-import { sha512 } from "../../../sha512.ts";
-import { download } from "../../../download.ts";
 import { createSeedIso } from "../../../cloud-init.ts";
-import { allocateSshPort } from "../../../ssh-port.ts";
+import { download } from "../../../download.ts";
 import { exec } from "../../../exec.ts";
-import { generateSshKeyPair } from "../../../ssh-keys.ts";
-import { SSH_OPTS, waitForSsh } from "../../../ssh.ts";
-import type { QemuImage, QemuImageResult } from "./types.ts";
 import type { ProjectConfig } from "../../../project-config.ts";
+import { sha512 } from "../../../sha512.ts";
+import { SSH_OPTS, waitForSsh } from "../../../ssh.ts";
+import { generateSshKeyPair } from "../../../ssh-keys.ts";
+import { allocateSshPort } from "../../../ssh-port.ts";
 import { loadCustomCloudInit } from "../config.ts";
 import { launchVm } from "../runtime.ts";
+import type { QemuImage, QemuImageResult } from "./types.ts";
 
 const BASE_URL = "https://cloud.debian.org/images/cloud/trixie/latest";
 const CACHE_DIR = join(homedir(), ".cache", "qemu-sandbox", "images", "debian");

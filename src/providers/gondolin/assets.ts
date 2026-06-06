@@ -1,9 +1,9 @@
+import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { arch, homedir } from "node:os";
 import { join } from "node:path";
-import { buildAssets, type BuildConfig, type ContainerRuntime } from "@earendil-works/gondolin";
-import { spawn } from "node:child_process";
+import { type BuildConfig, buildAssets, type ContainerRuntime } from "@earendil-works/gondolin";
 import type { ProjectConfig } from "../../project-config.ts";
 
 const IMAGE_DIR = join(homedir(), ".cache", "qemu-sandbox", "images", "gondolin-oci");
@@ -100,9 +100,9 @@ export async function ensureGondolinImage(config: ProjectConfig): Promise<string
   await mkdir(outputDir, { recursive: true });
   await writeFile(join(outputDir, "build-config.json"), JSON.stringify(buildConfig, null, 2));
 
-  if (ociBuild) {
+  if (ociBuild && ociRuntime && ociImage) {
     const containerfilePath = join(config.localConfigDir, ociBuild);
-    await buildOciImage(ociRuntime!, containerfilePath, ociImage!, config.localConfigDir);
+    await buildOciImage(ociRuntime, containerfilePath, ociImage, config.localConfigDir);
   }
 
   console.log(`Building Gondolin assets from ${ociImage ?? config.settings.gondolin.oci}...`);

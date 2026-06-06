@@ -1,8 +1,8 @@
-import { describe, it, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { after, describe, it } from "node:test";
 import { createSeedIso } from "../src/cloud-init.ts";
 
 describe("createSeedIso", () => {

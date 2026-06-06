@@ -1,12 +1,12 @@
 #!/usr/bin/env -S node --experimental-strip-types
 
-import { start } from "../commands/start.ts";
-import { stop } from "../commands/stop.ts";
-import { list } from "../commands/list.ts";
-import { info } from "../commands/info.ts";
 import { bake } from "../commands/bake.ts";
 import { code } from "../commands/code.ts";
 import { idea } from "../commands/idea.ts";
+import { info } from "../commands/info.ts";
+import { list } from "../commands/list.ts";
+import { start } from "../commands/start.ts";
+import { stop } from "../commands/stop.ts";
 import { sync as syncCmd } from "../commands/sync.ts";
 
 export interface ParsedArgs {

@@ -1,12 +1,12 @@
 import { join } from "node:path";
 import { createSeedIso } from "../../cloud-init.ts";
+import type { ProjectConfig } from "../../project-config.ts";
 import { generateSshKeyPair, getSshAgentKeys } from "../../ssh-keys.ts";
 import { allocateSshPort } from "../../ssh-port.ts";
-import type { ProjectConfig } from "../../project-config.ts";
 import type { SandboxProvider } from "../types.ts";
-import { launchVm } from "./runtime.ts";
 import { loadCustomCloudInit } from "./config.ts";
 import { resolveQemuImage } from "./images/registry.ts";
+import { launchVm } from "./runtime.ts";
 
 export const qemuProvider: SandboxProvider = {
   name: "qemu",

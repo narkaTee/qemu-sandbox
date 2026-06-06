@@ -1,9 +1,9 @@
 #!/usr/bin/env -S node --experimental-strip-types
 
-import { dirname } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
-import { createGondolinVm } from "../providers/gondolin/runtime.ts";
+import { dirname } from "node:path";
 import { loadProjectConfig } from "../project-config.ts";
+import { createGondolinVm } from "../providers/gondolin/runtime.ts";
 import { waitForSsh } from "../ssh.ts";
 import { writeState } from "../state.ts";
 

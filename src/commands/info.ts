@@ -1,12 +1,12 @@
 import {
-  sandboxName,
   isRunning,
   readPid,
-  readSshPort,
   readProvider,
-  readSshIdentityFile,
   readSshHost,
+  readSshIdentityFile,
+  readSshPort,
   readSshUser,
+  sandboxName,
 } from "../state.ts";
 
 export async function info(): Promise<void> {

@@ -1,9 +1,9 @@
-import { describe, it, after } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { after, describe, it } from "node:test";
 import { sha512 } from "../src/sha512.ts";
 
 describe("sha512", () => {

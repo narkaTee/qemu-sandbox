@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
-import { sandboxName, isRunning, readSshPort, readSshHost, readSshUser, readSshIdentityFile } from "../state.ts";
-import { SSH_OPTS } from "../ssh.ts";
-import { loadProjectConfig } from "../project-config.ts";
 import type { ParsedArgs } from "../bin/sandbox.ts";
+import { loadProjectConfig } from "../project-config.ts";
+import { SSH_OPTS } from "../ssh.ts";
+import { isRunning, readSshHost, readSshIdentityFile, readSshPort, readSshUser, sandboxName } from "../state.ts";
 
 function rsync(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {

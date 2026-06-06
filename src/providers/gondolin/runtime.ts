@@ -1,8 +1,8 @@
-import { RealFSProvider, ReadonlyProvider, VM, type VirtualProvider } from "@earendil-works/gondolin";
 import { join } from "node:path";
+import { ReadonlyProvider, RealFSProvider, type VirtualProvider, VM } from "@earendil-works/gondolin";
 import type { MountEntry, ProjectConfig } from "../../project-config.ts";
-import { MappedOwnerProvider } from "./mapped-owner-provider.ts";
 import { ensureGondolinImage } from "./assets.ts";
+import { MappedOwnerProvider } from "./mapped-owner-provider.ts";
 
 type GondolinProvider = VirtualProvider;
 

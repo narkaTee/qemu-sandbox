@@ -1,5 +1,5 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 import { nixBakeHash } from "../../../../src/providers/qemu/images/nixos.ts";
 
 describe("nixBakeHash", () => {

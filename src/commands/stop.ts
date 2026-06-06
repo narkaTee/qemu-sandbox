@@ -1,5 +1,5 @@
 import type { ParsedArgs } from "../bin/sandbox.ts";
-import { isRunning, listAll, readPid, removeState, sandboxName, isProcessRunning } from "../state.ts";
+import { isProcessRunning, isRunning, listAll, readPid, removeState, sandboxName } from "../state.ts";
 
 function killProcess(pid: number, signal: NodeJS.Signals = "SIGTERM"): void {
   try {

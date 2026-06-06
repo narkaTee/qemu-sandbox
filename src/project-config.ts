@@ -1,9 +1,9 @@
 import { readFile, stat } from "node:fs/promises";
-import { join, resolve } from "node:path";
 import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import { parse } from "yaml";
-import { resolveAgentConfigs } from "./agent-mounts.ts";
 import type { FileCopy } from "./agent-mounts.ts";
+import { resolveAgentConfigs } from "./agent-mounts.ts";
 
 const LOCAL_CONFIG_DIR = ".qemu-sandbox";
 const GLOBAL_CONFIG_DIR = join(homedir(), ".config", "qemu-sandbox");

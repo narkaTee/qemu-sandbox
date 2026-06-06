@@ -1,5 +1,5 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 import { detectAccel, qemuSystemBinary } from "../../../src/providers/qemu/runtime.ts";
 
 describe("qemuSystemBinary", () => {

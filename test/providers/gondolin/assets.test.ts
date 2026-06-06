@@ -1,7 +1,7 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { gondolinBuildConfig, gondolinImageHash } from "../../../src/providers/gondolin/assets.ts";
+import { describe, it } from "node:test";
 import type { ProjectConfig } from "../../../src/project-config.ts";
+import { gondolinBuildConfig, gondolinImageHash } from "../../../src/providers/gondolin/assets.ts";
 
 const config: ProjectConfig = {
   projectRoot: "/tmp/project",

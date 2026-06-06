@@ -1,6 +1,6 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import test from "node:test";
 import { shellEscape } from "../src/shell-escape.ts";
 
 function shEcho(value: string): Promise<string> {

@@ -1,6 +1,6 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { validateAgentNames, resolveAgentConfigs, KNOWN_AGENTS } from "../src/agent-mounts.ts";
+import { describe, it } from "node:test";
+import { KNOWN_AGENTS, resolveAgentConfigs, validateAgentNames } from "../src/agent-mounts.ts";
 
 describe("validateAgentNames", () => {
   it("accepts known agents", () => {

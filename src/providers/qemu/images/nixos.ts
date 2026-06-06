@@ -3,9 +3,9 @@ import { copyFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { exec } from "../../../exec.ts";
-import type { QemuImage, QemuImageResult } from "./types.ts";
 import type { ProjectConfig } from "../../../project-config.ts";
 import { customNixosModulePath } from "../config.ts";
+import type { QemuImage, QemuImageResult } from "./types.ts";
 
 const FLAKE_DIR = resolve(import.meta.dirname ?? "", "../../../../sandbox-nixos");
 const BAKED_DIR = join(homedir(), ".cache", "qemu-sandbox", "images", "nixos");

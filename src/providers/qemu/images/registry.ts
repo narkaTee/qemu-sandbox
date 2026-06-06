@@ -1,7 +1,7 @@
-import type { QemuImage } from "./types.ts";
+import type { QemuImageName } from "../../../project-config.ts";
 import { debianImage } from "./debian.ts";
 import { nixosImage } from "./nixos.ts";
-import type { QemuImageName } from "../../../project-config.ts";
+import type { QemuImage } from "./types.ts";
 
 const images: Record<QemuImageName, QemuImage> = {
   "debian-13": debianImage,

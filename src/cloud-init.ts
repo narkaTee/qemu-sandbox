@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { platform } from "node:os";
-import { stringify, parse } from "yaml";
+import { join } from "node:path";
+import { parse, stringify } from "yaml";
 import { exec } from "./exec.ts";
 import type { MountEntry } from "./project-config.ts";
 

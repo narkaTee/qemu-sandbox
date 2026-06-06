@@ -1,16 +1,16 @@
-import { describe, it, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { tmpdir, homedir } from "node:os";
+import { after, describe, it } from "node:test";
 import {
   loadProjectConfig,
-  resolveMounts,
-  parseSettings,
   mergeSettings,
+  parseSettings,
+  resolveHostPath,
+  resolveMounts,
   validateGuestPath,
   validateHostPath,
-  resolveHostPath,
 } from "../src/project-config.ts";
 
 describe("parseSettings", () => {

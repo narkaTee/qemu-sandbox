@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "fmt": "biome format --write .",
     "fmt:check": "biome format .",
-    "check:biome": "biome lint --error-on-warnings .",
+    "check:biome": "biome check --error-on-warnings .",
+    "check:biome:fix": "biome check --error-on-warnings --fix .",
     "check": "npm run check:biome && npm run typecheck",
     "test": "node --test --test-reporter=dot test/*.test.ts test/**/*.test.ts"
   },

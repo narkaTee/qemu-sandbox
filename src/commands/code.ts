@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
-import { sandboxName, isRunning, readSshPort, readSshHost, readSshUser } from "../state.ts";
-import { openUrl } from "../open-url.ts";
 import type { ParsedArgs } from "../bin/sandbox.ts";
+import { openUrl } from "../open-url.ts";
+import { isRunning, readSshHost, readSshPort, readSshUser, sandboxName } from "../state.ts";
 
 function hasCommand(cmd: string): Promise<boolean> {
   return new Promise((resolve) => {

@@ -1,6 +1,6 @@
+import { stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { stat } from "node:fs/promises";
 import type { MountEntry } from "./project-config.ts";
 
 export interface FileCopy {

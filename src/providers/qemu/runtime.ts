@@ -1,5 +1,5 @@
-import { constants } from "node:fs";
 import { spawn } from "node:child_process";
+import { constants } from "node:fs";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { arch, platform } from "node:os";
 import { join } from "node:path";

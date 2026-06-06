@@ -1,9 +1,9 @@
-import { describe, it, after } from "node:test";
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { after, describe, it } from "node:test";
 import { download } from "../src/download.ts";
 
 describe("download", () => {

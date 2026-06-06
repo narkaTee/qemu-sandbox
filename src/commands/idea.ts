@@ -1,6 +1,6 @@
-import { sandboxName, isRunning, readSshPort, readSshHost, readSshUser } from "../state.ts";
-import { openUrl } from "../open-url.ts";
 import type { ParsedArgs } from "../bin/sandbox.ts";
+import { openUrl } from "../open-url.ts";
+import { isRunning, readSshHost, readSshPort, readSshUser, sandboxName } from "../state.ts";
 
 export async function idea(_args: ParsedArgs): Promise<void> {
   const name = sandboxName();

@@ -1,18 +1,18 @@
 import { mkdir } from "node:fs/promises";
-import { enterSsh, copyFilesToVm, waitForSsh } from "../ssh.ts";
-import {
-  sandboxName,
-  stateDir,
-  isRunning,
-  readSshPort,
-  writeState,
-  readSshIdentityFile,
-  readSshHost,
-  readSshUser,
-} from "../state.ts";
+import type { ParsedArgs } from "../bin/sandbox.ts";
 import { loadProjectConfig } from "../project-config.ts";
 import { resolveProvider } from "../providers/registry.ts";
-import type { ParsedArgs } from "../bin/sandbox.ts";
+import { copyFilesToVm, enterSsh, waitForSsh } from "../ssh.ts";
+import {
+  isRunning,
+  readSshHost,
+  readSshIdentityFile,
+  readSshPort,
+  readSshUser,
+  sandboxName,
+  stateDir,
+  writeState,
+} from "../state.ts";
 
 export async function start(_args: ParsedArgs): Promise<void> {
   const name = sandboxName();
