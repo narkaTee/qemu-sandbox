@@ -104,44 +104,55 @@ function renderMetaData(config: CloudInitConfig): string {
   });
 }
 
-export async function createSeedIso(outputPath: string, config: CloudInitConfig): Promise<void> {
+type ExecFn = typeof exec;
+
+export interface CreateSeedIsoDeps {
+  exec?: ExecFn;
+  platform?: NodeJS.Platform;
+  findLinuxIsoTool?: () => Promise<string>;
+}
+
+export async function createSeedIso(
+  outputPath: string,
+  config: CloudInitConfig,
+  deps: CreateSeedIsoDeps = {}
+): Promise<void> {
   const seedDir = `${outputPath}.d`;
   await mkdir(seedDir, { recursive: true });
 
   await writeFile(join(seedDir, "user-data"), renderUserData(config));
   await writeFile(join(seedDir, "meta-data"), renderMetaData(config));
 
-  if (platform() === "darwin") {
-    await exec("hdiutil", [
-      "makehybrid",
-      "-o",
-      outputPath,
-      "-hfs",
-      "-joliet",
-      "-iso",
-      "-default-volume-name",
-      "cidata",
-      seedDir,
-    ]);
+  const execFn = deps.exec ?? exec;
+  if ((deps.platform ?? platform()) === "darwin") {
+    await execFn("hdiutil", hdiutilArgs(outputPath, seedDir));
   } else {
-    const tool = await findLinuxIsoTool();
-    await exec(tool, [
-      "-output",
-      outputPath,
-      "-volid",
-      "cidata",
-      "-joliet",
-      "-rock",
-      join(seedDir, "user-data"),
-      join(seedDir, "meta-data"),
-    ]);
+    const findTool = deps.findLinuxIsoTool ?? (() => findLinuxIsoTool(execFn));
+    await execFn(await findTool(), linuxIsoArgs(outputPath, seedDir));
   }
 }
 
-async function findLinuxIsoTool(): Promise<string> {
+export function hdiutilArgs(outputPath: string, seedDir: string): string[] {
+  return ["makehybrid", "-o", outputPath, "-hfs", "-joliet", "-iso", "-default-volume-name", "cidata", seedDir];
+}
+
+export function linuxIsoArgs(outputPath: string, seedDir: string): string[] {
+  return [
+    "-output",
+    outputPath,
+    "-volid",
+    "cidata",
+    "-joliet",
+    "-rock",
+    join(seedDir, "user-data"),
+    join(seedDir, "meta-data"),
+  ];
+}
+
+export async function findLinuxIsoTool(execFn: ExecFn = exec): Promise<string> {
   for (const tool of ["genisoimage", "mkisofs", "xorriso"]) {
     try {
-      await exec("which", [tool]);
+      await execFn("which", [tool]);
       if (tool === "xorriso") return "xorrisofs";
       return tool;
     } catch {}
