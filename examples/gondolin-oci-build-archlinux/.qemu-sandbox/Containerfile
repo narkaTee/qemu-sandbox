@@ -1,0 +1,13 @@
+FROM docker.io/library/archlinux:latest
+
+RUN pacman -Syu --noconfirm \
+  openssh \
+  rsync \
+  shadow \
+  procps-ng \
+  iproute2 \
+  gawk \
+  grep \
+  coreutils \
+  && useradd -m -s /bin/sh dev \
+  && rm -rf /run/*

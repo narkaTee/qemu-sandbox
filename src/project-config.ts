@@ -24,6 +24,7 @@ export interface QemuSettings {
 
 export interface GondolinSettings {
   oci: string;
+  "oci-build"?: string;
 }
 
 export interface SandboxSettings {
@@ -172,30 +173,40 @@ function parseOptionalSettings(raw: unknown): ParsedSandboxSettings {
           "mount-agent-configs": obj["mount-agent-configs"].filter((v): v is string => typeof v === "string"),
         }
       : {}),
-    ...(qemu && parseQemuImage(qemu.image)
-      ? { qemu: { image: parseQemuImage(qemu.image) } }
+    ...(qemu && parseQemuImage(qemu.image) ? { qemu: { image: parseQemuImage(qemu.image) } } : {}),
+    ...(gondolin
+      ? {
+          gondolin: {
+            ...(typeof gondolin.oci === "string" ? { oci: gondolin.oci } : {}),
+            ...(typeof gondolin["oci-build"] === "string" ? { "oci-build": gondolin["oci-build"] } : {}),
+          },
+        }
       : {}),
-    ...(gondolin && typeof gondolin.oci === "string" ? { gondolin: { oci: gondolin.oci } } : {}),
   };
 }
 
 function applySettingsDefaults(settings: ParsedSandboxSettings): SandboxSettings {
+  validateGondolinSettings(settings);
   return {
     provider: settings.provider ?? DEFAULT_SETTINGS.provider,
     memory: settings.memory ?? DEFAULT_SETTINGS.memory,
     cpus: settings.cpus ?? DEFAULT_SETTINGS.cpus,
-    "mount-workspace":
-      settings["mount-workspace"] ?? DEFAULT_SETTINGS["mount-workspace"],
-    "mount-agent-configs":
-      settings["mount-agent-configs"] ??
-      DEFAULT_SETTINGS["mount-agent-configs"],
+    "mount-workspace": settings["mount-workspace"] ?? DEFAULT_SETTINGS["mount-workspace"],
+    "mount-agent-configs": settings["mount-agent-configs"] ?? DEFAULT_SETTINGS["mount-agent-configs"],
     qemu: {
       image: settings.qemu?.image ?? DEFAULT_SETTINGS.qemu.image,
     },
     gondolin: {
       oci: settings.gondolin?.oci ?? DEFAULT_SETTINGS.gondolin.oci,
+      "oci-build": settings.gondolin?.["oci-build"],
     },
   };
+}
+
+function validateGondolinSettings(settings: ParsedSandboxSettings): void {
+  if (settings.gondolin?.oci !== undefined && settings.gondolin?.["oci-build"] !== undefined) {
+    throw new Error("gondolin.oci and gondolin.oci-build are mutually exclusive");
+  }
 }
 
 export function parseSettings(raw: unknown): SandboxSettings {
@@ -205,6 +216,13 @@ export function parseSettings(raw: unknown): SandboxSettings {
 export function mergeSettings(global: unknown, local: unknown): SandboxSettings {
   const globalSettings = parseOptionalSettings(global);
   const localSettings = parseOptionalSettings(local);
+  const gondolin = {
+    ...globalSettings.gondolin,
+    ...localSettings.gondolin,
+  };
+  if (localSettings.gondolin?.oci !== undefined) delete gondolin["oci-build"];
+  if (localSettings.gondolin?.["oci-build"] !== undefined) delete gondolin.oci;
+
   return applySettingsDefaults({
     ...globalSettings,
     ...localSettings,
@@ -212,10 +230,7 @@ export function mergeSettings(global: unknown, local: unknown): SandboxSettings 
       ...globalSettings.qemu,
       ...localSettings.qemu,
     },
-    gondolin: {
-      ...globalSettings.gondolin,
-      ...localSettings.gondolin,
-    },
+    gondolin,
   });
 }
 

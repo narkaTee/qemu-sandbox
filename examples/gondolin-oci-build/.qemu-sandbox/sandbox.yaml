@@ -1,0 +1,7 @@
+provider: gondolin
+memory: 2048
+cpus: 2
+mount-workspace: true
+
+gondolin:
+  oci-build: Containerfile

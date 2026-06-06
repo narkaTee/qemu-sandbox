@@ -72,6 +72,18 @@ describe("parseSettings", () => {
     });
     assert.deepEqual(s["mount-agent-configs"], ["claude", "gemini"]);
   });
+
+  it("parses gondolin.oci-build", () => {
+    const s = parseSettings({ provider: "gondolin", gondolin: { "oci-build": "Containerfile" } });
+    assert.equal(s.gondolin["oci-build"], "Containerfile");
+  });
+
+  it("errors when gondolin.oci and gondolin.oci-build are both set", () => {
+    assert.throws(
+      () => parseSettings({ provider: "gondolin", gondolin: { oci: "my-image:latest", "oci-build": "Containerfile" } }),
+      /mutually exclusive/
+    );
+  });
 });
 
 describe("mergeSettings", () => {
@@ -114,6 +126,18 @@ describe("mergeSettings", () => {
       ],
       ["gemini"]
     );
+  });
+
+  it("local gondolin.oci-build overrides global gondolin.oci", () => {
+    const merged = mergeSettings({ gondolin: { oci: "ghcr.io/a:1" } }, { gondolin: { "oci-build": "Containerfile" } });
+    assert.equal(merged.gondolin.oci, "ghcr.io/narkatee/sandbox-container:latest");
+    assert.equal(merged.gondolin["oci-build"], "Containerfile");
+  });
+
+  it("local gondolin.oci overrides global gondolin.oci-build", () => {
+    const merged = mergeSettings({ gondolin: { "oci-build": "Containerfile" } }, { gondolin: { oci: "ghcr.io/a:1" } });
+    assert.equal(merged.gondolin.oci, "ghcr.io/a:1");
+    assert.equal(merged.gondolin["oci-build"], undefined);
   });
 });
 

@@ -88,6 +88,7 @@ gondolin:
 | `mount-agent-configs`  | List of agent configs to mount          | `[]`                                      |
 | `qemu.image`           | Base image name for QEMU                | `debian-13`                               |
 | `gondolin.oci`         | OCI image for Gondolin assets           | `ghcr.io/narkatee/sandbox-container:latest` |
+| `gondolin.oci-build`   | Local Containerfile to build OCI image   | —                                           |
 
 Available QEMU images: `debian-13`, `nixos`.
 
@@ -204,4 +205,28 @@ The baked image is cached by the hash of `nixos.nix`. Changing the file triggers
 
 ### Gondolin
 
-For Gondolin, `bake` builds or reuses the OCI-derived guest assets.
+For Gondolin, `bake` builds or reuses the OCI-derived guest assets. When `gondolin.oci-build` is set, `bake` also runs the Containerfile build first.
+
+Instead of pulling a remote OCI image with `gondolin.oci`, you can build one locally from a Containerfile:
+
+```yaml
+provider: gondolin
+mount-workspace: true
+
+gondolin:
+  oci-build: Containerfile
+```
+
+This runs `podman build` (or `docker build`, auto-detected) using the Containerfile in `.qemu-sandbox/` as the build context. The resulting image is then used to build the Gondolin guest assets.
+
+The built image is tagged deterministically based on the Containerfile contents, so changes to the Containerfile trigger a rebuild automatically.
+
+`gondolin.oci` and `gondolin.oci-build` are mutually exclusive — use one or the other.
+
+**Guest image requirements:** The built image must include:
+
+- `openssh` (with `sshd` at `/usr/sbin/sshd` and `ssh-keygen` at `/usr/bin/ssh-keygen`)
+- `rsync`
+- A `dev` user (UID 1000)
+
+See the `examples/gondolin-oci-build*` directories for working Containerfiles.

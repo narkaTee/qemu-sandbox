@@ -27,6 +27,16 @@ describe("gondolinBuildConfig", () => {
     assert.equal(buildConfig.oci?.pullPolicy, "if-not-present");
     assert.equal(buildConfig.runtimeDefaults?.rootfsMode, "cow");
   });
+
+  it("uses the overridden OCI image when provided", () => {
+    const buildConfig = gondolinBuildConfig(config, "localhost/qemu-sandbox-gondolin:abc123");
+    assert.equal(buildConfig.oci?.image, "localhost/qemu-sandbox-gondolin:abc123");
+  });
+
+  it("uses the overridden OCI runtime when provided", () => {
+    const buildConfig = gondolinBuildConfig(config, "localhost/qemu-sandbox-gondolin:abc123", "docker");
+    assert.equal(buildConfig.oci?.runtime, "docker");
+  });
 });
 
 describe("gondolinImageHash", () => {
