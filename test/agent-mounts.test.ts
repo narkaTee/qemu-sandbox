@@ -8,17 +8,11 @@ describe("validateAgentNames", () => {
   });
 
   it("rejects unknown agents", () => {
-    assert.throws(
-      () => validateAgentNames(["unknown-agent"]),
-      /Unknown agent 'unknown-agent'/,
-    );
+    assert.throws(() => validateAgentNames(["unknown-agent"]), /Unknown agent 'unknown-agent'/);
   });
 
   it("lists known agents in error", () => {
-    assert.throws(
-      () => validateAgentNames(["bad"]),
-      new RegExp(KNOWN_AGENTS.join(", ")),
-    );
+    assert.throws(() => validateAgentNames(["bad"]), new RegExp(KNOWN_AGENTS.join(", ")));
   });
 
   it("accepts empty list", () => {
@@ -34,10 +28,7 @@ describe("resolveAgentConfigs", () => {
   });
 
   it("rejects unknown agents", async () => {
-    await assert.rejects(
-      () => resolveAgentConfigs(["nonexistent"]),
-      /Unknown agent 'nonexistent'/,
-    );
+    await assert.rejects(() => resolveAgentConfigs(["nonexistent"]), /Unknown agent 'nonexistent'/);
   });
 
   it("skips entries where host path does not exist", async () => {

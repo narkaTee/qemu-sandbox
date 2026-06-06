@@ -7,13 +7,13 @@ import type { QemuImage, QemuImageResult } from "./types.ts";
 import type { ProjectConfig } from "../../../project-config.ts";
 import { customNixosModulePath } from "../config.ts";
 
-const FLAKE_DIR = resolve(import.meta.dirname!, "../../../../sandbox-nixos");
+const FLAKE_DIR = resolve(import.meta.dirname ?? "", "../../../../sandbox-nixos");
 const BAKED_DIR = join(homedir(), ".cache", "qemu-sandbox", "images", "nixos");
 
 async function fileExists(path: string): Promise<boolean> {
   return stat(path).then(
     (s) => s.isFile(),
-    () => false,
+    () => false
   );
 }
 
@@ -25,19 +25,12 @@ export function nixBakeHash(customModule: string | null): string {
 
 async function buildBaseImage(): Promise<string> {
   console.log("Building NixOS base image...");
-  const { stdout } = await exec("nix", [
-    "build",
-    `${FLAKE_DIR}#default`,
-    "--no-link",
-    "--print-out-paths",
-  ]);
+  const { stdout } = await exec("nix", ["build", `${FLAKE_DIR}#default`, "--no-link", "--print-out-paths"]);
   const outDir = stdout.trim();
   return join(outDir, "disk.qcow2");
 }
 
-async function buildWithCustomModule(
-  customModulePath: string,
-): Promise<string> {
+async function buildWithCustomModule(customModulePath: string): Promise<string> {
   console.log("Building NixOS image with custom module...");
 
   const wrapperFlake = `{
@@ -70,12 +63,7 @@ async function buildWithCustomModule(
   await copyFile(customModulePath, join(tmpDir, "custom.nix"));
   await exec("nix", ["flake", "update", "--flake", tmpDir]);
 
-  const { stdout } = await exec("nix", [
-    "build",
-    `${tmpDir}#default`,
-    "--no-link",
-    "--print-out-paths",
-  ]);
+  const { stdout } = await exec("nix", ["build", `${tmpDir}#default`, "--no-link", "--print-out-paths"]);
   const outDir = stdout.trim();
   return join(outDir, "disk.qcow2");
 }
@@ -84,9 +72,7 @@ async function bakeNixos(config: ProjectConfig): Promise<QemuImageResult> {
   const customModulePath = customNixosModulePath(config);
   const hasCustom = await fileExists(customModulePath);
 
-  const customContent = hasCustom
-    ? await readFile(customModulePath, "utf-8")
-    : null;
+  const customContent = hasCustom ? await readFile(customModulePath, "utf-8") : null;
 
   const hash = nixBakeHash(customContent);
   const bakedPath = join(BAKED_DIR, `baked-${hash}.qcow2`);

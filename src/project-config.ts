@@ -57,7 +57,7 @@ export interface ProjectConfig {
 export async function fileExists(path: string): Promise<boolean> {
   return stat(path).then(
     (s) => s.isFile(),
-    () => false,
+    () => false
   );
 }
 
@@ -68,7 +68,7 @@ export function validateGuestPath(path: string): void {
   if (path.includes("\0")) {
     throw new Error("Guest path cannot contain null bytes");
   }
-  if (/[\x01-\x1F\x7F]/.test(path)) {
+  if (/\p{Cc}/u.test(path)) {
     throw new Error("Guest path cannot contain control characters");
   }
   if (!path.startsWith("/")) {
@@ -86,7 +86,7 @@ export function validateHostPath(path: string): void {
   if (path.includes("\0")) {
     throw new Error("Host path cannot contain null bytes");
   }
-  if (/[\x01-\x1F\x7F]/.test(path)) {
+  if (/\p{Cc}/u.test(path)) {
     throw new Error("Host path cannot contain control characters");
   }
   if (path.startsWith("~") && path !== "~" && !path.startsWith("~/")) {
@@ -97,13 +97,11 @@ export function validateHostPath(path: string): void {
 export function deriveGuestPath(host: string): string {
   validateHostPath(host);
   if (host.startsWith("~/") || host === "~") {
-    const path = "/home/dev" + host.slice(1);
+    const path = `/home/dev${host.slice(1)}`;
     validateGuestPath(path);
     return path;
   }
-  throw new Error(
-    `Mount '${host}' is a relative path and requires an explicit 'guest' field`,
-  );
+  throw new Error(`Mount '${host}' is a relative path and requires an explicit 'guest' field`);
 }
 
 export function parseMounts(raw: unknown): MountEntry[] {
@@ -113,8 +111,7 @@ export function parseMounts(raw: unknown): MountEntry[] {
     .map((e) => {
       const host = e.host as string;
       validateHostPath(host);
-      const guest =
-        typeof e.guest === "string" ? e.guest : deriveGuestPath(host);
+      const guest = typeof e.guest === "string" ? e.guest : deriveGuestPath(host);
       validateGuestPath(guest);
       return {
         host,
@@ -151,15 +148,10 @@ function parseQemuImage(value: unknown): QemuImageName | undefined {
 function validateKnownSettings(raw: unknown): void {
   if (!raw || typeof raw !== "object") return;
   const obj = raw as Record<string, unknown>;
-  const qemu =
-    obj.qemu && typeof obj.qemu === "object"
-      ? (obj.qemu as Record<string, unknown>)
-      : null;
+  const qemu = obj.qemu && typeof obj.qemu === "object" ? (obj.qemu as Record<string, unknown>) : null;
 
   if (qemu && "image" in qemu && parseQemuImage(qemu.image) === undefined) {
-    throw new Error(
-      `Unknown QEMU image: ${String(qemu.image)} (available: debian-13, nixos)`,
-    );
+    throw new Error(`Unknown QEMU image: ${String(qemu.image)} (available: debian-13, nixos)`);
   }
 }
 
@@ -167,43 +159,27 @@ function parseOptionalSettings(raw: unknown): ParsedSandboxSettings {
   validateKnownSettings(raw);
   if (!raw || typeof raw !== "object") return {};
   const obj = raw as Record<string, unknown>;
-  const qemu =
-    obj.qemu && typeof obj.qemu === "object"
-      ? (obj.qemu as Record<string, unknown>)
-      : null;
-  const gondolin =
-    obj.gondolin && typeof obj.gondolin === "object"
-      ? (obj.gondolin as Record<string, unknown>)
-      : null;
+  const qemu = obj.qemu && typeof obj.qemu === "object" ? (obj.qemu as Record<string, unknown>) : null;
+  const gondolin = obj.gondolin && typeof obj.gondolin === "object" ? (obj.gondolin as Record<string, unknown>) : null;
 
   return {
-    ...(parseProvider(obj.provider)
-      ? { provider: parseProvider(obj.provider) }
-      : {}),
+    ...(parseProvider(obj.provider) ? { provider: parseProvider(obj.provider) } : {}),
     ...(typeof obj.memory === "number" ? { memory: obj.memory } : {}),
     ...(typeof obj.cpus === "number" ? { cpus: obj.cpus } : {}),
-    ...(typeof obj["mount-workspace"] === "boolean"
-      ? { "mount-workspace": obj["mount-workspace"] }
-      : {}),
+    ...(typeof obj["mount-workspace"] === "boolean" ? { "mount-workspace": obj["mount-workspace"] } : {}),
     ...(Array.isArray(obj["mount-agent-configs"])
       ? {
-          "mount-agent-configs": obj["mount-agent-configs"].filter(
-            (v): v is string => typeof v === "string",
-          ),
+          "mount-agent-configs": obj["mount-agent-configs"].filter((v): v is string => typeof v === "string"),
         }
       : {}),
     ...(qemu && parseQemuImage(qemu.image)
-      ? { qemu: { image: parseQemuImage(qemu.image)! } }
+      ? { qemu: { image: parseQemuImage(qemu.image) } }
       : {}),
-    ...(gondolin && typeof gondolin.oci === "string"
-      ? { gondolin: { oci: gondolin.oci } }
-      : {}),
+    ...(gondolin && typeof gondolin.oci === "string" ? { gondolin: { oci: gondolin.oci } } : {}),
   };
 }
 
-function applySettingsDefaults(
-  settings: ParsedSandboxSettings,
-): SandboxSettings {
+function applySettingsDefaults(settings: ParsedSandboxSettings): SandboxSettings {
   return {
     provider: settings.provider ?? DEFAULT_SETTINGS.provider,
     memory: settings.memory ?? DEFAULT_SETTINGS.memory,
@@ -226,10 +202,7 @@ export function parseSettings(raw: unknown): SandboxSettings {
   return applySettingsDefaults(parseOptionalSettings(raw));
 }
 
-export function mergeSettings(
-  global: unknown,
-  local: unknown,
-): SandboxSettings {
+export function mergeSettings(global: unknown, local: unknown): SandboxSettings {
   const globalSettings = parseOptionalSettings(global);
   const localSettings = parseOptionalSettings(local);
   return applySettingsDefaults({
@@ -253,10 +226,7 @@ export function resolveHostPath(path: string, projectRoot: string): string {
   return resolve(projectRoot, path);
 }
 
-export function resolveMounts(
-  mounts: MountEntry[],
-  projectRoot: string,
-): MountEntry[] {
+export function resolveMounts(mounts: MountEntry[], projectRoot: string): MountEntry[] {
   return mounts.map((m) => ({
     ...m,
     host: resolveHostPath(m.host, projectRoot),
@@ -280,9 +250,7 @@ async function loadYaml(path: string): Promise<unknown> {
   return parse(await readFile(path, "utf-8"));
 }
 
-export async function loadProjectConfig(
-  projectRoot: string = process.cwd(),
-): Promise<ProjectConfig> {
+export async function loadProjectConfig(projectRoot: string = process.cwd()): Promise<ProjectConfig> {
   const localConfigDir = join(projectRoot, LOCAL_CONFIG_DIR);
 
   const globalRaw = await loadYaml(join(GLOBAL_CONFIG_DIR, "sandbox.yaml"));

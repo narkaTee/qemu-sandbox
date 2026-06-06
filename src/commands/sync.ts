@@ -1,12 +1,5 @@
 import { spawn } from "node:child_process";
-import {
-  sandboxName,
-  isRunning,
-  readSshPort,
-  readSshHost,
-  readSshUser,
-  readSshIdentityFile,
-} from "../state.ts";
+import { sandboxName, isRunning, readSshPort, readSshHost, readSshUser, readSshIdentityFile } from "../state.ts";
 import { SSH_OPTS } from "../ssh.ts";
 import { loadProjectConfig } from "../project-config.ts";
 import type { ParsedArgs } from "../bin/sandbox.ts";
@@ -30,9 +23,7 @@ export async function sync(args: ParsedArgs): Promise<void> {
 
   const config = await loadProjectConfig();
   if (config.settings["mount-workspace"]) {
-    throw new Error(
-      "sync is disabled when mount-workspace is enabled (files are already shared via virtio mount)",
-    );
+    throw new Error("sync is disabled when mount-workspace is enabled (files are already shared via virtio mount)");
   }
 
   const name = sandboxName();
@@ -48,13 +39,7 @@ export async function sync(args: ParsedArgs): Promise<void> {
     throw new Error("Could not determine SSH port");
   }
 
-  const sshCmd = [
-    "ssh",
-    ...SSH_OPTS,
-    ...(identityFile ? ["-i", identityFile] : []),
-    "-p",
-    String(port),
-  ].join(" ");
+  const sshCmd = ["ssh", ...SSH_OPTS, ...(identityFile ? ["-i", identityFile] : []), "-p", String(port)].join(" ");
   const remote = `${user}@${host}:/home/dev/workspace/`;
 
   const common = ["-hzav", "--no-o", "--no-g", "--delete", "-e", sshCmd];

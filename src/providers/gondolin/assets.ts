@@ -5,13 +5,7 @@ import { join } from "node:path";
 import { buildAssets, type BuildConfig } from "@earendil-works/gondolin";
 import type { ProjectConfig } from "../../project-config.ts";
 
-const IMAGE_DIR = join(
-  homedir(),
-  ".cache",
-  "qemu-sandbox",
-  "images",
-  "gondolin-oci",
-);
+const IMAGE_DIR = join(homedir(), ".cache", "qemu-sandbox", "images", "gondolin-oci");
 
 export function gondolinArch(): "x86_64" | "aarch64" {
   const a = arch();
@@ -40,9 +34,7 @@ export function gondolinImageHash(buildConfig: BuildConfig): string {
   return h.digest("hex").slice(0, 16);
 }
 
-export async function ensureGondolinImage(
-  config: ProjectConfig,
-): Promise<string> {
+export async function ensureGondolinImage(config: ProjectConfig): Promise<string> {
   const buildConfig = gondolinBuildConfig(config);
   const outputDir = join(IMAGE_DIR, `assets-${gondolinImageHash(buildConfig)}`);
   try {
@@ -51,13 +43,8 @@ export async function ensureGondolinImage(
   } catch {}
 
   await mkdir(outputDir, { recursive: true });
-  await writeFile(
-    join(outputDir, "build-config.json"),
-    JSON.stringify(buildConfig, null, 2),
-  );
-  console.log(
-    `Building Gondolin OCI image from ${config.settings.gondolin.oci}...`,
-  );
+  await writeFile(join(outputDir, "build-config.json"), JSON.stringify(buildConfig, null, 2));
+  console.log(`Building Gondolin OCI image from ${config.settings.gondolin.oci}...`);
   await buildAssets(buildConfig, {
     outputDir,
     verbose: true,

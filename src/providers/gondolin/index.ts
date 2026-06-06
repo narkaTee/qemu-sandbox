@@ -14,10 +14,7 @@ interface GondolinReady {
   error?: string;
 }
 
-async function waitForGondolinReady(
-  path: string,
-  timeoutMs: number,
-): Promise<GondolinReady> {
+async function waitForGondolinReady(path: string, timeoutMs: number): Promise<GondolinReady> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
@@ -42,25 +39,19 @@ export const gondolinProvider: SandboxProvider = {
         name,
         projectRoot: config.projectRoot,
         stateReadyPath: readyPath,
-      }),
+      })
     );
 
-    const runnerPath = fileURLToPath(
-      new URL("../../bin/gondolin-runner.ts", import.meta.url),
-    );
-    const child = spawn(
-      process.execPath,
-      ["--experimental-strip-types", runnerPath, runnerConfigPath],
-      {
-        detached: true,
-        stdio: ["ignore", "ignore", "inherit"],
-        env: {
-          ...process.env,
-          PATH: `${process.env.PATH ?? ""}:/usr/sbin:/sbin`,
-          TMPDIR: stateDir,
-        },
+    const runnerPath = fileURLToPath(new URL("../../bin/gondolin-runner.ts", import.meta.url));
+    const child = spawn(process.execPath, ["--experimental-strip-types", runnerPath, runnerConfigPath], {
+      detached: true,
+      stdio: ["ignore", "ignore", "inherit"],
+      env: {
+        ...process.env,
+        PATH: `${process.env.PATH ?? ""}:/usr/sbin:/sbin`,
+        TMPDIR: stateDir,
       },
-    );
+    });
     child.unref();
 
     const ready = await waitForGondolinReady(readyPath, 300_000);
@@ -75,9 +66,7 @@ export const gondolinProvider: SandboxProvider = {
       timeoutSeconds: 30,
     });
 
-    console.log(
-      `Gondolin started (PID: ${ready.pid ?? child.pid}, ssh port: ${ready.sshPort})`,
-    );
+    console.log(`Gondolin started (PID: ${ready.pid ?? child.pid}, ssh port: ${ready.sshPort})`);
 
     return {
       pid: ready.pid ?? child.pid ?? process.pid,

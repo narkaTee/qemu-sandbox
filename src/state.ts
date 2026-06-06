@@ -1,13 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import {
-  readFile,
-  readdir,
-  rename,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises";
+import { readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import type { ProviderName } from "./project-config.ts";
@@ -55,10 +48,7 @@ async function readState(name: string): Promise<SandboxState | null> {
   }
 }
 
-export async function writeState(
-  name: string,
-  state: SandboxState,
-): Promise<void> {
+export async function writeState(name: string, state: SandboxState): Promise<void> {
   const dir = stateDir(name);
   const tmp = join(dir, "state.json.tmp");
   const dest = join(dir, "state.json");
@@ -81,9 +71,7 @@ export async function readProvider(name: string): Promise<ProviderName> {
   return state?.provider ?? "qemu";
 }
 
-export async function readSshIdentityFile(
-  name: string,
-): Promise<string | null> {
+export async function readSshIdentityFile(name: string): Promise<string | null> {
   const state = await readState(name);
   return state?.sshIdentityFile ?? null;
 }

@@ -63,10 +63,7 @@ describe("parseSettings", () => {
   });
 
   it("errors on unknown qemu image", () => {
-    assert.throws(
-      () => parseSettings({ qemu: { image: "alpine" } }),
-      /Unknown QEMU image: alpine/,
-    );
+    assert.throws(() => parseSettings({ qemu: { image: "alpine" } }), /Unknown QEMU image: alpine/);
   });
 
   it("filters non-string entries in mount-agent-configs", () => {
@@ -81,7 +78,7 @@ describe("mergeSettings", () => {
   it("local overrides global scalar values", () => {
     const merged = mergeSettings(
       { provider: "qemu", memory: 4096, cpus: 2, qemu: { image: "debian-13" } },
-      { provider: "gondolin", memory: 8192 },
+      { provider: "gondolin", memory: 8192 }
     );
     assert.equal(merged.provider, "gondolin");
     assert.equal(merged.memory, 8192);
@@ -92,7 +89,7 @@ describe("mergeSettings", () => {
   it("deep merges provider blocks", () => {
     const merged = mergeSettings(
       { provider: "qemu", qemu: { image: "nixos" }, gondolin: { oci: "ghcr.io/a:1" } },
-      { memory: 2048 },
+      { memory: 2048 }
     );
     assert.equal(merged.provider, "qemu");
     assert.equal(merged.qemu.image, "nixos");
@@ -105,26 +102,17 @@ describe("mergeSettings", () => {
   });
 
   it("local mount-workspace overrides global", () => {
-    assert.equal(
-      mergeSettings({ "mount-workspace": true }, {})["mount-workspace"],
-      true,
-    );
-    assert.equal(
-      mergeSettings({ "mount-workspace": true }, { "mount-workspace": false })[
-        "mount-workspace"
-      ],
-      false,
-    );
+    assert.equal(mergeSettings({ "mount-workspace": true }, {})["mount-workspace"], true);
+    assert.equal(mergeSettings({ "mount-workspace": true }, { "mount-workspace": false })["mount-workspace"], false);
     assert.equal(mergeSettings({}, {})["mount-workspace"], false);
   });
 
   it("local mount-agent-configs replaces global", () => {
     assert.deepEqual(
-      mergeSettings(
-        { "mount-agent-configs": ["claude"] },
-        { "mount-agent-configs": ["gemini"] },
-      )["mount-agent-configs"],
-      ["gemini"],
+      mergeSettings({ "mount-agent-configs": ["claude"] }, { "mount-agent-configs": ["gemini"] })[
+        "mount-agent-configs"
+      ],
+      ["gemini"]
     );
   });
 });
@@ -212,9 +200,7 @@ describe("loadProjectConfig", () => {
 
   after(async () => {
     if (dir) await rm(dir, { recursive: true, force: true });
-    await Promise.all(
-      homeCleanup.map((path) => rm(path, { recursive: true, force: true })),
-    );
+    await Promise.all(homeCleanup.map((path) => rm(path, { recursive: true, force: true })));
   });
 
   it("returns defaults when no config dir exists", async () => {
@@ -235,7 +221,7 @@ describe("loadProjectConfig", () => {
     await mkdir(configDir, { recursive: true });
     await writeFile(
       join(configDir, "sandbox.yaml"),
-      "provider: gondolin\ngondolin:\n  oci: ghcr.io/example/test:latest\nmemory: 8192\ncpus: 8\n",
+      "provider: gondolin\ngondolin:\n  oci: ghcr.io/example/test:latest\nmemory: 8192\ncpus: 8\n"
     );
 
     const config = await loadProjectConfig(dir);
@@ -251,10 +237,7 @@ describe("loadProjectConfig", () => {
     await mkdir(configDir, { recursive: true });
     await writeFile(join(configDir, "sandbox.yaml"), "qemu:\n  image: deboian-13\n");
 
-    await assert.rejects(
-      () => loadProjectConfig(dir),
-      /Unknown QEMU image: deboian-13/,
-    );
+    await assert.rejects(() => loadProjectConfig(dir), /Unknown QEMU image: deboian-13/);
   });
 
   it("loads mounts.yaml and resolves paths against project root", async () => {
@@ -264,7 +247,7 @@ describe("loadProjectConfig", () => {
     await mkdir(join(dir, "data"));
     await writeFile(
       join(configDir, "mounts.yaml"),
-      "- host: .\n  guest: /home/dev/workspace\n- host: data\n  guest: /mnt/data\n  readonly: true\n",
+      "- host: .\n  guest: /home/dev/workspace\n- host: data\n  guest: /mnt/data\n  readonly: true\n"
     );
 
     const config = await loadProjectConfig(dir);
@@ -280,20 +263,13 @@ describe("loadProjectConfig", () => {
   it("derives guest path from ~ host paths", async () => {
     dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
     const configDir = join(dir, ".qemu-sandbox");
-    const homeMount1 = await mkdtemp(
-      join(homedir(), ".config/qemu-sandbox-test-a-"),
-    );
-    const homeMount2 = await mkdtemp(
-      join(homedir(), ".config/qemu-sandbox-test-b-"),
-    );
+    const homeMount1 = await mkdtemp(join(homedir(), ".config/qemu-sandbox-test-a-"));
+    const homeMount2 = await mkdtemp(join(homedir(), ".config/qemu-sandbox-test-b-"));
     homeCleanup.push(homeMount1, homeMount2);
     const homePath1 = `~/.config/${basename(homeMount1)}`;
     const homePath2 = `~/.config/${basename(homeMount2)}`;
     await mkdir(configDir, { recursive: true });
-    await writeFile(
-      join(configDir, "mounts.yaml"),
-      `- host: ${homePath1}\n- host: ${homePath2}\n`,
-    );
+    await writeFile(join(configDir, "mounts.yaml"), `- host: ${homePath1}\n- host: ${homePath2}\n`);
 
     const config = await loadProjectConfig(dir);
     assert.equal(config.mounts.length, 2);
@@ -307,10 +283,7 @@ describe("loadProjectConfig", () => {
     dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
     const configDir = join(dir, ".qemu-sandbox");
     await mkdir(configDir, { recursive: true });
-    await writeFile(
-      join(configDir, "sandbox.yaml"),
-      "mount-workspace: true\n",
-    );
+    await writeFile(join(configDir, "sandbox.yaml"), "mount-workspace: true\n");
 
     const config = await loadProjectConfig(dir);
     assert.equal(config.mounts.length, 1);
@@ -322,16 +295,11 @@ describe("loadProjectConfig", () => {
   it("workspace mount is first when combined with mounts.yaml", async () => {
     dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
     const configDir = join(dir, ".qemu-sandbox");
-    const homeMount = await mkdtemp(
-      join(homedir(), ".config/qemu-sandbox-test-c-"),
-    );
+    const homeMount = await mkdtemp(join(homedir(), ".config/qemu-sandbox-test-c-"));
     homeCleanup.push(homeMount);
     const homePath = `~/.config/${basename(homeMount)}`;
     await mkdir(configDir, { recursive: true });
-    await writeFile(
-      join(configDir, "sandbox.yaml"),
-      "mount-workspace: true\n",
-    );
+    await writeFile(join(configDir, "sandbox.yaml"), "mount-workspace: true\n");
     await writeFile(join(configDir, "mounts.yaml"), `- host: ${homePath}\n`);
 
     const config = await loadProjectConfig(dir);
@@ -344,15 +312,9 @@ describe("loadProjectConfig", () => {
     dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
     const configDir = join(dir, ".qemu-sandbox");
     await mkdir(configDir, { recursive: true });
-    await writeFile(
-      join(configDir, "mounts.yaml"),
-      "- host: missing\n  guest: /mnt/missing\n",
-    );
+    await writeFile(join(configDir, "mounts.yaml"), "- host: missing\n  guest: /mnt/missing\n");
 
-    await assert.rejects(
-      () => loadProjectConfig(dir),
-      /Host mount path does not exist/,
-    );
+    await assert.rejects(() => loadProjectConfig(dir), /Host mount path does not exist/);
   });
 
   it("errors when host mount path is not a directory", async () => {
@@ -360,39 +322,24 @@ describe("loadProjectConfig", () => {
     const configDir = join(dir, ".qemu-sandbox");
     await mkdir(configDir, { recursive: true });
     await writeFile(join(dir, "file.txt"), "x");
-    await writeFile(
-      join(configDir, "mounts.yaml"),
-      "- host: file.txt\n  guest: /mnt/file\n",
-    );
+    await writeFile(join(configDir, "mounts.yaml"), "- host: file.txt\n  guest: /mnt/file\n");
 
-    await assert.rejects(
-      () => loadProjectConfig(dir),
-      /must be a directory/,
-    );
+    await assert.rejects(() => loadProjectConfig(dir), /must be a directory/);
   });
 
   it("errors on relative path without guest", async () => {
     dir = await mkdtemp(join(tmpdir(), "projconf-test-"));
     const configDir = join(dir, ".qemu-sandbox");
     await mkdir(configDir, { recursive: true });
-    await writeFile(
-      join(configDir, "mounts.yaml"),
-      "- host: ../some-dir\n",
-    );
+    await writeFile(join(configDir, "mounts.yaml"), "- host: ../some-dir\n");
 
-    await assert.rejects(
-      () => loadProjectConfig(dir),
-      /requires an explicit 'guest' field/,
-    );
+    await assert.rejects(() => loadProjectConfig(dir), /requires an explicit 'guest' field/);
   });
 });
 
 describe("resolveMounts", () => {
   it("resolves relative host paths against project root", () => {
-    const result = resolveMounts(
-      [{ host: "src", guest: "/opt/src", readonly: false }],
-      "/projects/myapp",
-    );
+    const result = resolveMounts([{ host: "src", guest: "/opt/src", readonly: false }], "/projects/myapp");
     assert.equal(result[0].host, "/projects/myapp/src");
     assert.equal(result[0].guest, "/opt/src");
   });
@@ -400,7 +347,7 @@ describe("resolveMounts", () => {
   it("resolves ~ host paths against home directory", () => {
     const result = resolveMounts(
       [{ host: "~/.config/tool", guest: "/home/dev/.config/tool", readonly: false }],
-      "/projects/myapp",
+      "/projects/myapp"
     );
     assert.equal(result[0].host, join(homedir(), ".config/tool"));
   });

@@ -51,16 +51,11 @@ function buildUserData(config: CloudInitConfig): Record<string, unknown> {
 
 const PROTECTED_KEYS = new Set(["hostname"]);
 
-function mergeCustomCloudInit(
-  doc: Record<string, unknown>,
-  custom: Record<string, unknown>,
-): void {
+function mergeCustomCloudInit(doc: Record<string, unknown>, custom: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(custom)) {
     if (value == null) continue;
     if (PROTECTED_KEYS.has(key)) {
-      console.warn(
-        `cloud-init: ignoring protected key '${key}' from custom config`,
-      );
+      console.warn(`cloud-init: ignoring protected key '${key}' from custom config`);
       continue;
     }
     if (key === "users" && Array.isArray(value)) {
@@ -75,10 +70,7 @@ function mergeCustomCloudInit(
   }
 }
 
-function mergeUsers(
-  base: Record<string, unknown>[],
-  custom: unknown[],
-): Record<string, unknown>[] {
+function mergeUsers(base: Record<string, unknown>[], custom: unknown[]): Record<string, unknown>[] {
   const result = [...base];
   for (const entry of custom) {
     if (!entry || typeof entry !== "object" || !("name" in entry)) {
@@ -90,9 +82,7 @@ function mergeUsers(
       console.warn("cloud-init: ignoring custom 'dev' user definition");
       continue;
     }
-    const existing = result.findIndex(
-      (u) => u && typeof u === "object" && u.name === name,
-    );
+    const existing = result.findIndex((u) => u && typeof u === "object" && u.name === name);
     if (existing >= 0) {
       result[existing] = entry as Record<string, unknown>;
     } else {
@@ -103,7 +93,8 @@ function mergeUsers(
 }
 
 export function renderUserData(config: CloudInitConfig): string {
-  return "#cloud-config\n" + stringify(buildUserData(config));
+  return `#cloud-config
+${stringify(buildUserData(config))}`;
 }
 
 function renderMetaData(config: CloudInitConfig): string {
@@ -113,10 +104,7 @@ function renderMetaData(config: CloudInitConfig): string {
   });
 }
 
-export async function createSeedIso(
-  outputPath: string,
-  config: CloudInitConfig,
-): Promise<void> {
+export async function createSeedIso(outputPath: string, config: CloudInitConfig): Promise<void> {
   const seedDir = `${outputPath}.d`;
   await mkdir(seedDir, { recursive: true });
 
@@ -156,11 +144,7 @@ async function findLinuxIsoTool(): Promise<string> {
       await exec("which", [tool]);
       if (tool === "xorriso") return "xorrisofs";
       return tool;
-    } catch {
-      continue;
-    }
+    } catch {}
   }
-  throw new Error(
-    "No ISO tool found. Install one of: genisoimage, mkisofs, xorriso",
-  );
+  throw new Error("No ISO tool found. Install one of: genisoimage, mkisofs, xorriso");
 }

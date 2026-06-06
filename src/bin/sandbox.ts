@@ -32,16 +32,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     ls: "list",
   };
 
-  const commands = new Set([
-    "start",
-    "bake",
-    "code",
-    "idea",
-    "info",
-    "list",
-    "stop",
-    "sync",
-  ]);
+  const commands = new Set(["start", "bake", "code", "idea", "info", "list", "stop", "sync"]);
 
   const subcommands: Record<string, Set<string>> = {
     sync: new Set(["up", "down"]),
@@ -54,16 +45,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
     if (arg === "-a") {
       result.flags.all = true;
-    } else if (
-      !result.command &&
-      (commands.has(arg) || arg in commandAliases)
-    ) {
+    } else if (!result.command && (commands.has(arg) || arg in commandAliases)) {
       result.command = commandAliases[arg] ?? arg;
-    } else if (
-      result.command &&
-      !result.subcommand &&
-      subcommands[result.command]?.has(arg)
-    ) {
+    } else if (result.command && !result.subcommand && subcommands[result.command]?.has(arg)) {
       result.subcommand = arg;
     } else if (arg.startsWith("-")) {
       exitWithError(`Unknown flag: ${arg}`);

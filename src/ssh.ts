@@ -26,11 +26,7 @@ export function waitForSsh(opts: WaitForSshOptions): Promise<void> {
   return new Promise((resolve, reject) => {
     function attempt() {
       if (Date.now() > deadline) {
-        reject(
-          new Error(
-            `SSH not reachable on ${host}:${port} within ${timeoutSeconds}s`,
-          ),
-        );
+        reject(new Error(`SSH not reachable on ${host}:${port} within ${timeoutSeconds}s`));
         return;
       }
 
@@ -63,23 +59,12 @@ export function waitForSsh(opts: WaitForSshOptions): Promise<void> {
   });
 }
 
-export function enterSsh(
-  host: string,
-  port: number,
-  user: string,
-  identityFile?: string,
-): Promise<number> {
+export function enterSsh(host: string, port: number, user: string, identityFile?: string): Promise<number> {
   return new Promise((resolve, reject) => {
     const child = spawn(
       "ssh",
-      [
-        ...SSH_OPTS,
-        ...(identityFile ? ["-i", identityFile] : []),
-        "-p",
-        String(port),
-        `${user}@${host}`,
-      ],
-      { stdio: "inherit" },
+      [...SSH_OPTS, ...(identityFile ? ["-i", identityFile] : []), "-p", String(port), `${user}@${host}`],
+      { stdio: "inherit" }
     );
     child.on("close", (code) => resolve(code ?? 0));
     child.on("error", reject);
@@ -97,25 +82,12 @@ function scp(args: string[]): Promise<void> {
   });
 }
 
-function sshExec(
-  host: string,
-  port: number,
-  user: string,
-  command: string,
-  identityFile?: string,
-): Promise<void> {
+function sshExec(host: string, port: number, user: string, command: string, identityFile?: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(
       "ssh",
-      [
-        ...SSH_OPTS,
-        ...(identityFile ? ["-i", identityFile] : []),
-        "-p",
-        String(port),
-        `${user}@${host}`,
-        command,
-      ],
-      { stdio: "inherit" },
+      [...SSH_OPTS, ...(identityFile ? ["-i", identityFile] : []), "-p", String(port), `${user}@${host}`, command],
+      { stdio: "inherit" }
     );
     child.on("close", (code) => {
       if (code !== 0) reject(new Error(`ssh command exited with code ${code}`));
@@ -130,13 +102,13 @@ export async function copyFilesToVm(
   port: number,
   user: string,
   copies: FileCopy[],
-  identityFile?: string,
+  identityFile?: string
 ): Promise<void> {
   const dirs = new Set(
     copies.map((c) => {
       const lastSlash = c.guest.lastIndexOf("/");
       return lastSlash > 0 ? c.guest.slice(0, lastSlash) : "/";
-    }),
+    })
   );
 
   if (dirs.size > 0) {

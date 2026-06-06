@@ -27,7 +27,7 @@ export async function info(): Promise<void> {
 
   if (running && port) {
     console.log(
-      `SSH cmd:  ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${identityFile ? `-i ${identityFile} ` : ""}-p ${port} ${user}@${host}`,
+      `SSH cmd:  ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${identityFile ? `-i ${identityFile} ` : ""}-p ${port} ${user}@${host}`
     );
   }
 }

@@ -1,13 +1,5 @@
 import { createHash } from "node:crypto";
-import {
-  mkdir,
-  readFile,
-  rename,
-  rm,
-  stat,
-  unlink,
-  writeFile,
-} from "node:fs/promises";
+import { mkdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { homedir, arch } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
@@ -56,7 +48,7 @@ async function fetchSha512Sums(): Promise<string> {
 async function fileExists(path: string): Promise<boolean> {
   return stat(path).then(
     () => true,
-    () => false,
+    () => false
   );
 }
 
@@ -74,8 +66,7 @@ async function ensureDebianImage(): Promise<string> {
 
   const sums = parseSha512Sums(await readFile(checksumsPath, "utf-8"));
   const expectedHash = sums.get(filename);
-  if (!expectedHash)
-    throw new Error(`No SHA512 checksum found for ${filename}`);
+  if (!expectedHash) throw new Error(`No SHA512 checksum found for ${filename}`);
 
   if (await fileExists(imagePath)) {
     console.log(`Verifying cached image: ${imagePath}`);
@@ -95,28 +86,21 @@ async function ensureDebianImage(): Promise<string> {
   const actualHash = await sha512(imagePath);
   if (actualHash !== expectedHash) {
     await unlink(imagePath);
-    throw new Error(
-      `Checksum mismatch!\n  expected: ${expectedHash}\n  actual:   ${actualHash}`,
-    );
+    throw new Error(`Checksum mismatch!\n  expected: ${expectedHash}\n  actual:   ${actualHash}`);
   }
   console.log("Checksum OK.");
 
   return imagePath;
 }
 
-export function bakeHash(
-  baseImage: string,
-  customCloudInit: string | null,
-): string {
+export function bakeHash(baseImage: string, customCloudInit: string | null): string {
   const h = createHash("sha256");
   h.update(baseImage);
   h.update(customCloudInit ?? "");
   return h.digest("hex").slice(0, 16);
 }
 
-async function generateTempKeyPair(
-  dir: string,
-): Promise<{ keyPath: string; pubKey: string }> {
+async function generateTempKeyPair(dir: string): Promise<{ keyPath: string; pubKey: string }> {
   const keyPath = join(dir, "bake_key");
   const keyPair = await generateSshKeyPair(keyPath);
   return { keyPath: keyPair.privateKeyPath, pubKey: keyPair.publicKey };
@@ -141,24 +125,20 @@ function waitForCloudInitDone(
   host: string,
   port: number,
   keyPath: string,
-  timeoutSeconds: number = 600,
+  timeoutSeconds: number = 600
 ): Promise<void> {
   const deadline = Date.now() + timeoutSeconds * 1000;
 
   return new Promise((resolve, reject) => {
     function attempt() {
       if (Date.now() > deadline) {
-        reject(
-          new Error(`cloud-init did not finish within ${timeoutSeconds}s`),
-        );
+        reject(new Error(`cloud-init did not finish within ${timeoutSeconds}s`));
         return;
       }
 
-      const child = spawn(
-        "ssh",
-        [...bakeSshArgs(keyPath, port, host), "cloud-init status"],
-        { stdio: ["ignore", "pipe", "ignore"] },
-      );
+      const child = spawn("ssh", [...bakeSshArgs(keyPath, port, host), "cloud-init status"], {
+        stdio: ["ignore", "pipe", "ignore"],
+      });
 
       let stdout = "";
       child.stdout?.on("data", (d: Buffer) => {
@@ -168,13 +148,8 @@ function waitForCloudInitDone(
       child.on("close", (code) => {
         if (code !== null && stdout.includes("done")) {
           resolve();
-        } else if (
-          code !== null &&
-          (stdout.includes("error") || stdout.includes("degraded"))
-        ) {
-          console.warn(
-            "cloud-init finished with errors; continuing bake anyway",
-          );
+        } else if (code !== null && (stdout.includes("error") || stdout.includes("degraded"))) {
+          console.warn("cloud-init finished with errors; continuing bake anyway");
           resolve();
         } else {
           setTimeout(attempt, 5000);
@@ -188,17 +163,9 @@ function waitForCloudInitDone(
   });
 }
 
-function shutdownVm(
-  host: string,
-  port: number,
-  keyPath: string,
-): Promise<void> {
+function shutdownVm(host: string, port: number, keyPath: string): Promise<void> {
   return new Promise((resolve) => {
-    const child = spawn(
-      "ssh",
-      [...bakeSshArgs(keyPath, port, host), "sudo poweroff"],
-      { stdio: "ignore" },
-    );
+    const child = spawn("ssh", [...bakeSshArgs(keyPath, port, host), "sudo poweroff"], { stdio: "ignore" });
     child.on("close", () => resolve());
     child.on("error", () => resolve());
   });
@@ -285,16 +252,7 @@ async function bakeDebian(config: ProjectConfig): Promise<QemuImageResult> {
 
   const overlayPath = join(tmpDir, "overlay.qcow2");
   const tmpBaked = `${bakedPath}.tmp`;
-  await exec("qemu-img", [
-    "convert",
-    "-f",
-    "qcow2",
-    "-O",
-    "qcow2",
-    "-c",
-    overlayPath,
-    tmpBaked,
-  ]);
+  await exec("qemu-img", ["convert", "-f", "qcow2", "-O", "qcow2", "-c", overlayPath, tmpBaked]);
   await rename(tmpBaked, bakedPath);
   await rm(tmpDir, { recursive: true }).catch(() => {});
 

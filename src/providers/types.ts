@@ -10,10 +10,6 @@ export interface StartedSandbox {
 
 export interface SandboxProvider {
   name: ProviderName;
-  start(
-    config: ProjectConfig,
-    name: string,
-    stateDir: string,
-  ): Promise<StartedSandbox>;
+  start(config: ProjectConfig, name: string, stateDir: string): Promise<StartedSandbox>;
   bake?(config: ProjectConfig): Promise<void>;
 }

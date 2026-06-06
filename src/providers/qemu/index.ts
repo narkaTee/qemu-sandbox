@@ -11,9 +11,7 @@ import { resolveQemuImage } from "./images/registry.ts";
 export const qemuProvider: SandboxProvider = {
   name: "qemu",
   async start(config: ProjectConfig, name: string, stateDir: string) {
-    const image = await resolveQemuImage(config.settings.qemu.image).bake(
-      config,
-    );
+    const image = await resolveQemuImage(config.settings.qemu.image).bake(config);
     console.log(`Image ready: ${image.diskImage}`);
 
     let sshKeys = await getSshAgentKeys();

@@ -17,27 +17,14 @@ async function main(): Promise<void> {
   const configPath = process.argv[2];
   if (!configPath) throw new Error("missing runner config path");
 
-  const runner = JSON.parse(
-    await readFile(configPath, "utf-8"),
-  ) as RunnerConfig;
+  const runner = JSON.parse(await readFile(configPath, "utf-8")) as RunnerConfig;
   const projectConfig = await loadProjectConfig(runner.projectRoot);
-  const vm = await createGondolinVm(
-    runner.name,
-    projectConfig,
-    dirname(configPath),
-  );
+  const vm = await createGondolinVm(runner.name, projectConfig, dirname(configPath));
 
   try {
-    await vm.fs
-      .mkdir("/home/dev/workspace", { recursive: true })
-      .catch(() => {});
-    const addUser = await vm.exec([
-      "/bin/sh",
-      "-lc",
-      "id dev >/dev/null 2>&1 || adduser -D -s /bin/sh dev",
-    ]);
-    if (!addUser.ok)
-      throw new Error(`failed to create dev user: ${addUser.stderr}`);
+    await vm.fs.mkdir("/home/dev/workspace", { recursive: true }).catch(() => {});
+    const addUser = await vm.exec(["/bin/sh", "-lc", "id dev >/dev/null 2>&1 || adduser -D -s /bin/sh dev"]);
+    if (!addUser.ok) throw new Error(`failed to create dev user: ${addUser.stderr}`);
 
     const workspaceAccess = await vm.exec([
       "/bin/sh",
@@ -45,9 +32,7 @@ async function main(): Promise<void> {
       "chown dev:dev /home/dev/workspace && chmod u+rwx /home/dev/workspace",
     ]);
     if (!workspaceAccess.ok) {
-      throw new Error(
-        `failed to prepare workspace mount: ${workspaceAccess.stderr}`,
-      );
+      throw new Error(`failed to prepare workspace mount: ${workspaceAccess.stderr}`);
     }
 
     const ssh = await vm.enableSsh({ user: "dev", listenHost: "127.0.0.1" });
@@ -66,7 +51,7 @@ async function main(): Promise<void> {
         pid,
         sshPort: ssh.port,
         identityFile: ssh.identityFile,
-      }),
+      })
     );
     await waitForSsh({
       host: ssh.host,
@@ -88,13 +73,8 @@ main().catch(async (err) => {
   const configPath = process.argv[2];
   if (configPath) {
     try {
-      const runner = JSON.parse(
-        await readFile(configPath, "utf-8"),
-      ) as RunnerConfig;
-      await writeFile(
-        runner.stateReadyPath,
-        JSON.stringify({ error: err.message }),
-      );
+      const runner = JSON.parse(await readFile(configPath, "utf-8")) as RunnerConfig;
+      await writeFile(runner.stateReadyPath, JSON.stringify({ error: err.message }));
     } catch {}
   }
   console.error(`gondolin-runner: ${err.message}`);

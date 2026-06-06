@@ -23,7 +23,8 @@ export async function start(_args: ParsedArgs): Promise<void> {
     const user = await readSshUser(name);
     const identityFile = (await readSshIdentityFile(name)) ?? undefined;
     console.log(`${name} is already running (ssh port: ${port})`);
-    await enterSsh(host, port!, user, identityFile);
+    if (port === null) throw new Error("Could not read SSH port for running sandbox");
+    await enterSsh(host, port, user, identityFile);
     return;
   }
 
@@ -53,19 +54,8 @@ export async function start(_args: ParsedArgs): Promise<void> {
 
   if (config.copies.length > 0) {
     console.log(`Copying ${config.copies.length} file(s) to VM...`);
-    await copyFilesToVm(
-      started.sshHost,
-      started.sshPort,
-      started.sshUser,
-      config.copies,
-      started.sshIdentityFile,
-    );
+    await copyFilesToVm(started.sshHost, started.sshPort, started.sshUser, config.copies, started.sshIdentityFile);
   }
 
-  await enterSsh(
-    started.sshHost,
-    started.sshPort,
-    started.sshUser,
-    started.sshIdentityFile,
-  );
+  await enterSsh(started.sshHost, started.sshPort, started.sshUser, started.sshIdentityFile);
 }

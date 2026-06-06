@@ -44,16 +44,14 @@ function resolveHome(path: string): string {
 async function pathExists(path: string, type: EntryType): Promise<boolean> {
   return stat(path).then(
     (s) => (type === "dir" ? s.isDirectory() : s.isFile()),
-    () => false,
+    () => false
   );
 }
 
 export function validateAgentNames(names: string[]): void {
   for (const name of names) {
     if (!(name in AGENTS)) {
-      throw new Error(
-        `Unknown agent '${name}'. Known agents: ${KNOWN_AGENTS.join(", ")}`,
-      );
+      throw new Error(`Unknown agent '${name}'. Known agents: ${KNOWN_AGENTS.join(", ")}`);
     }
   }
 }
@@ -63,9 +61,7 @@ export interface AgentResolution {
   copies: FileCopy[];
 }
 
-export async function resolveAgentConfigs(
-  agentNames: string[],
-): Promise<AgentResolution> {
+export async function resolveAgentConfigs(agentNames: string[]): Promise<AgentResolution> {
   validateAgentNames(agentNames);
 
   const mounts: MountEntry[] = [];

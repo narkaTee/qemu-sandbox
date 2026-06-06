@@ -41,29 +41,11 @@ export interface VmConfig {
   fwCfg?: Record<string, string>;
 }
 
-export async function createOverlay(
-  baseImage: string,
-  overlayPath: string,
-  sizeGb: number = 20,
-): Promise<void> {
-  await exec("qemu-img", [
-    "create",
-    "-f",
-    "qcow2",
-    "-b",
-    baseImage,
-    "-F",
-    "qcow2",
-    overlayPath,
-    `${sizeGb}G`,
-  ]);
+export async function createOverlay(baseImage: string, overlayPath: string, sizeGb: number = 20): Promise<void> {
+  await exec("qemu-img", ["create", "-f", "qcow2", "-b", baseImage, "-F", "qcow2", overlayPath, `${sizeGb}G`]);
 }
 
-async function writeFwCfgFile(
-  dir: string,
-  name: string,
-  content: string,
-): Promise<string> {
+async function writeFwCfgFile(dir: string, name: string, content: string): Promise<string> {
   const path = join(dir, `fwcfg-${name}`);
   await writeFile(path, content);
   return path;
@@ -113,10 +95,7 @@ export async function launchVm(config: VmConfig): Promise<number> {
   ];
 
   if (config.seedIso) {
-    args.push(
-      "-drive",
-      `file=${config.seedIso},if=virtio,format=raw,media=cdrom`,
-    );
+    args.push("-drive", `file=${config.seedIso},if=virtio,format=raw,media=cdrom`);
   }
 
   if (config.fwCfg) {
@@ -130,10 +109,7 @@ export async function launchVm(config: VmConfig): Promise<number> {
     for (const [i, m] of config.mounts.entries()) {
       const tag = `mount${i}`;
       const ro = m.readonly ? ",readonly=on" : "";
-      args.push(
-        "-virtfs",
-        `local,path=${m.host},mount_tag=${tag},security_model=mapped-xattr${ro}`,
-      );
+      args.push("-virtfs", `local,path=${m.host},mount_tag=${tag},security_model=mapped-xattr${ro}`);
     }
   }
 

@@ -8,16 +8,18 @@
   "scripts": {
     "start": "node src/bin/sandbox.ts",
     "typecheck": "tsc --noEmit",
-    "fmt": "prettier --list-different src/ | xargs -r prettier --write",
-    "fmt:check": "prettier --list-different src/",
+    "fmt": "biome format --write .",
+    "fmt:check": "biome format .",
+    "check:biome": "biome lint --error-on-warnings .",
+    "check": "npm run check:biome && npm run typecheck",
     "test": "node --test --test-reporter=dot test/*.test.ts test/**/*.test.ts"
   },
   "engines": {
     "node": ">=23"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.4",
     "@types/node": "^25.5.2",
-    "prettier": "^3.8.1",
     "typescript": "^6.0"
   },
   "dependencies": {

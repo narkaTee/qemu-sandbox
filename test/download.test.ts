@@ -65,12 +65,9 @@ describe("download", () => {
 
     try {
       const dest = join(dir, "out.txt");
-      await assert.rejects(
-        () => download(`http://localhost:${port}/missing`, dest),
-        {
-          message: /Download failed: 404/,
-        },
-      );
+      await assert.rejects(() => download(`http://localhost:${port}/missing`, dest), {
+        message: /Download failed: 404/,
+      });
     } finally {
       server.close();
     }

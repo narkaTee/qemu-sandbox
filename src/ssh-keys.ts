@@ -12,15 +12,13 @@ export function getSshAgentKeys(): Promise<string[]> {
         stdout
           .trim()
           .split("\n")
-          .filter((line) => line.length > 0),
+          .filter((line) => line.length > 0)
       );
     });
   });
 }
 
-export async function generateSshKeyPair(
-  path: string,
-): Promise<{ privateKeyPath: string; publicKey: string }> {
+export async function generateSshKeyPair(path: string): Promise<{ privateKeyPath: string; publicKey: string }> {
   await rm(path, { force: true });
   await rm(`${path}.pub`, { force: true });
   execFileSync("ssh-keygen", ["-t", "ed25519", "-f", path, "-N", "", "-q"], {

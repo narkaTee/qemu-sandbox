@@ -8,15 +8,11 @@ export async function list(): Promise<void> {
     return;
   }
 
-  console.log(
-    `${"NAME".padEnd(30)} ${"PROVIDER".padEnd(9)} ${"STATUS".padEnd(10)} ${"PID".padEnd(8)} SSH_PORT`,
-  );
+  console.log(`${"NAME".padEnd(30)} ${"PROVIDER".padEnd(9)} ${"STATUS".padEnd(10)} ${"PID".padEnd(8)} SSH_PORT`);
   for (const sb of sandboxes) {
     const status = sb.running ? "Running" : "Stopped";
     const pid = sb.pid?.toString() ?? "-";
     const port = sb.sshPort?.toString() ?? "-";
-    console.log(
-      `${sb.name.padEnd(30)} ${sb.provider.padEnd(9)} ${status.padEnd(10)} ${pid.padEnd(8)} ${port}`,
-    );
+    console.log(`${sb.name.padEnd(30)} ${sb.provider.padEnd(9)} ${status.padEnd(10)} ${pid.padEnd(8)} ${port}`);
   }
 }
