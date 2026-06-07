@@ -1,0 +1,74 @@
+provider: gondolin
+memory: 2048
+cpus: 2
+mount-workspace: true
+
+gondolin:
+  oci: ghcr.io/narkatee/sandbox-container:latest
+
+env:
+  # set env vars directly
+  EXAMPLE_VAR:
+    value: example_value
+
+  # import existing env vars from the host machine
+  VAR_TO_IMPORT:
+    valueFrom:
+      hostEnv: VAR_TO_IMPORT
+  ANOTHER_VAR_TO_IMPORT:
+    valueFrom:
+      hostEnv: ANOTHER_VAR_TO_IMPORT
+
+  # from command; array form avoids shell quoting issues
+  GITHUB_TOKEN2:
+    valueFrom:
+      command:
+        - op
+        - read
+        - op://github/Personal Access Tokens/GITHUB_TOKEN
+
+  # from dotenv; key defaults to the variable name if omitted
+  ANOTHER_TOKEN2:
+    valueFrom:
+      dotenv:
+        path: .env
+        key: ANOTHER_TOKEN2
+
+# With the Gondolin provider, secrets use Gondolin's secret injection mechanism.
+# The guest VM sees only placeholders; the host substitutes the real values into
+# outbound HTTP traffic for the configured hosts.
+#
+# With the QEMU provider, this mechanism is unavailable. Set qemu-fallback: env
+# per secret to explicitly allow exposing that secret as a normal guest env var.
+secrets:
+  # uses a command to fetch the secret value (for example, 1Password)
+  GITHUB_TOKEN:
+    hosts:
+      - api.github.com
+    qemu-fallback: env
+    valueFrom:
+      command:
+        - echo
+        - foobar
+        # or something like:
+        #- op
+        #- read
+        #- op://github/Personal Access Tokens/GITHUB_TOKEN
+
+  # uses value from host env if available; hostEnv defaults to the secret name
+  ANOTHER_TOKEN:
+    hosts:
+      - another-api.example.com
+    qemu-fallback: env
+    valueFrom:
+      hostEnv: ANOTHER_TOKEN
+
+  # uses value from .env; key defaults to the secret name if omitted
+  ANOTHER_TOKEN2:
+    hosts:
+      - another-api2.example.com
+    qemu-fallback: env
+    valueFrom:
+      dotenv:
+        path: .env
+        key: ANOTHER_TOKEN2
